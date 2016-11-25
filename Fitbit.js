@@ -191,6 +191,9 @@ Fitbit.prototype.request = function( options, cb ) {
 		    remaining: res.headers[ 'fitbit-rate-limit-remaining' ],
 		    reset: res.headers[ 'fitbit-rate-limit-reset' ],
 		};
+        if (res.statusCode >= 400) {
+            return cb({ statusCode: res.statusCode, data: body || 'Unknown fitbit request error.' });
+        }
 		cb( null, body );
 	    });
 	},
