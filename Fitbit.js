@@ -108,6 +108,10 @@ Fitbit.prototype.fetchToken = function( code, cb ) {
         }
     }, function( err, res, body ) {
 	if ( err ) return cb( err );
+	if (res.statusCode >= 400) {
+		return cb({ statusCode: res.statusCode, data: body || 'Unknown fitbit fetch token request error.' });
+	}
+
 	try {
 	    var token = JSON.parse( body );
 	    token.expires_at = moment().add( token.expires_in, 'seconds' ).format( 'YYYYMMDDTHH:mm:ss' );
@@ -144,6 +148,9 @@ Fitbit.prototype.refresh = function( cb ) {
         }
     }, function( err, res, body ) {
         if ( err ) return cb( new Error( 'token refresh: ' + err.message ) );
+	if (res.statusCode >= 400) {
+		return cb({ statusCode: res.statusCode, data: body || 'Unknown fitbit refresh request error.' });
+	}
 	try {
             var token = JSON.parse( body );
             token.expires_at = moment().add( token.expires_in, 'seconds' ).format( 'YYYYMMDDTHH:mm:ss' );
