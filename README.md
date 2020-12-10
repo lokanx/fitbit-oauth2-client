@@ -1,4 +1,6 @@
-# Fitbit OAuth2
+# Fitbit OAuth2 Client
+
+Based on: https://github.com/Info-World/fitbit-oauth2
 
 Client library to support interfacing with the Fitbit API using OAuth2.
 
