@@ -1,6 +1,6 @@
 {
-  "name": "fitbit-oauth2",
-  "version": "0.0.1",
+  "name": "fitbit-oauth2-client",
+  "version": "0.0.2",
   "description": "Fitbit client API for OAuth2",
   "main": "Fitbit.js",
   "scripts": {
@@ -10,10 +10,13 @@
     "fitbit",
     "oauth2"
   ],
-  "author": "Andrew Peebles",
+  "author": "Björn Sjögren",
+  "contributors": [
+    "Andrew Peebles"
+  ]  
   "repository": {
     "type": "git",
-    "url": "https://github.com/peebles/fitbit-oauth2.git"
+    "url": "https://github.com/lokanx/fitbit-oauth2-client.git"
   },
   "license": "ISC",
   "dependencies": {
