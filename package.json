@@ -13,7 +13,7 @@
   "author": "Björn Sjögren",
   "contributors": [
     "Andrew Peebles"
-  ]  
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/lokanx/fitbit-oauth2-client.git"
