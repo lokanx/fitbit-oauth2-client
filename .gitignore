@@ -27,3 +27,7 @@ build/Release
 node_modules
 
 *~
+
+.env
+test/config/token-test.json
+.DS_Store

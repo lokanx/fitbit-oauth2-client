@@ -1,0 +1,8 @@
+{
+    "access_token":"<someBlodyToken>",
+    "expires_in":28800,
+    "refresh_token":"<someBlodyRefreshToken>",
+    "scope":"heartrate nutrition weight sleep activity settings location social profile",
+    "token_type":"Bearer",
+    "user_id":"<SomeUserId>",
+    "expires_at":"20210108T08:08:25"}
