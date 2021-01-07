@@ -251,3 +251,11 @@ response headers.  This will look something like:
         "reset": "932"
     }
 
+## Running tests
+
+Short description on how to run the tests, follow the OAuth 2.0 tutorial page on fitbit test app page using flow type *Authorization Code Flow* on https://dev.fitbit.com/.
+
+1. Create a test app and get client id, client secret, token and refresh token. 
+2. Copy token-test.json.sample into token-test.json and fill in the information.
+3. Copy .env.sample into .env and fill in the information.
+4. Run tests using npm test
