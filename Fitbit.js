@@ -1,9 +1,7 @@
 var request = require('request');
-var moment = require('moment');
 var async = require('async');
 
 const DATE_TIME_FORMAT = 'YYYYMMDDTHH:mm:ss';
-
 class Fitbit {
     constructor(config, persist) {
         this.config = config;
@@ -12,6 +10,19 @@ class Fitbit {
         if (!this.config.timeout) {
             this.config.timeout = 60 * 1000; // default 1 minute
         }
+    }
+
+    static addExpiresAt(token) {
+        let now = new Date();
+        now.setSeconds(now.getSeconds() + token.expires_in);
+        const expires_at = now.toISOString();        
+        return {...token, expires_at};
+    }
+
+    static hasTokenExpired(token) {
+        let then = new Date(token.expires_at);
+        let now = new Date();
+        return (now.getTime() >= then.getTime());
     }
 
     authorizeURL() {
@@ -48,8 +59,8 @@ class Fitbit {
             }
     
             try {
-                var token = JSON.parse(body);
-                token.expires_at = moment().add(token.expires_in, 'seconds').format(DATE_TIME_FORMAT);
+                var rawToken = JSON.parse(body);
+                var token = Fitbit.addExpiresAt(rawToken);
                 self.token = token;
                 if (!self.persist) {
                     return cb(null, token);
@@ -95,8 +106,8 @@ class Fitbit {
                 return cb({ statusCode: res.statusCode, data: body || 'Unknown fitbit refresh request error.' });
             }
             try {
-                var token = JSON.parse(body);
-                token.expires_at = moment().add(token.expires_in, 'seconds').format(DATE_TIME_FORMAT);
+                var rawToken = JSON.parse(body);
+                var token = Fitbit.addExpiresAt(rawToken);
                 self.token = token;
                 if (!self.persist) {
                     return cb(null, token);
@@ -131,7 +142,7 @@ class Fitbit {
 
         async.series([
             function (cb) {
-                if (moment().unix() >= moment(self.token.expires_at, DATE_TIME_FORMAT).unix()) {
+                if (Fitbit.hasTokenExpired(self.token)) {
                     self.refresh(cb);
                 } else {
                     cb();

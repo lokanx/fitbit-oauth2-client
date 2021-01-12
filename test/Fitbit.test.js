@@ -1,5 +1,4 @@
 const fs     = require( 'fs' );
-const moment = require('moment');
 const appConfig = require( './config/app.json' );
 const Fitbit = require( '../Fitbit' ); 
 
@@ -111,7 +110,7 @@ const init = (fitbitConfig, callback) => {
         fitbit.setToken( token );
 
         if (!token.expires_at) {
-            token.expires_at = moment().add( token.expires_in, 'seconds' ).format( 'YYYYMMDDTHH:mm:ss' );
+            token = Fitbit.addExpiresAt(token);
             persist.write( fitbitConfig.tokenFilePath, token, function( err ) {
                 if ( err ) {
                     LOGGER.error( err );
