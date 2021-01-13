@@ -61,8 +61,8 @@ const request = (fitbit, fitbitConfig, options, callback) => {
     // Make an API call
     fitbit.request(options, function( err, body, token ) {
         if ( err ) {
-            LOGGER.error("Error:", {err: formatError(err), body, token} );
-            process.exit(1);
+            LOGGER.error("Error:", JSON.stringify({err: formatError(err), body, token} ));
+            throw err;
         }
         
         LOGGER.debug('Received data:', {err, body, token});
@@ -73,8 +73,8 @@ const request = (fitbit, fitbitConfig, options, callback) => {
             LOGGER.debug("Got new token:", token);
             persist.write( fitbitConfig.tokenFilePath, parseResponse(token), function( err ) {
                 if ( err ) {
-                    LOGGER.error("Error:", {err: formatError(err)} );                    
-                    process.exit(-1);
+                    LOGGER.error("Error:", JSON.stringify({err: formatError(err)}));                    
+                    throw err;
                 } else {
                     callback(parseResponse( body ));        
                 }                
@@ -97,13 +97,14 @@ const getProfile = (fitbit, fitbitConfig, callback) => {
 
 const init = (fitbitConfig, callback) => {
     const fitbit = new Fitbit(fitbitConfig);
+    fitbit.setLogger(LOGGER);
 
     // Read the persisted token, initially captured by a webapp.
     //     
     persist.read( fitbitConfig.tokenFilePath, function( err, token ) {
         if ( err ) {
             LOGGER.error( err );
-            process.exit(1);
+            throw err;
         }
 
         // Set the client's token
@@ -114,7 +115,7 @@ const init = (fitbitConfig, callback) => {
             persist.write( fitbitConfig.tokenFilePath, token, function( err ) {
                 if ( err ) {
                     LOGGER.error( err );
-                    process.exit(-1);
+                    throw err;
                 } else {
                     callback();        
                 }                
@@ -137,7 +138,11 @@ describe('request', () => {
     });
 
     test('getProfile', (done) => {
-        console.log('TOKEN:', fitbit.getToken());
+        console.log('ACTIVE TOKEN:', fitbit.getToken());
+        const token = fitbit.getToken();
+        if (token.expires_at) {
+            delete token.expires_at;
+        }
         getProfile(fitbit, appConfig.fitbit, () => {
             done();
         });        

@@ -17,7 +17,6 @@ module.exports = {
         },
         "authorization_uri": {
             "redirect_uri": process.env.env_redirect_uri,
-            "response_type": "code",
             "scope": "location activity nutrition social settings profile sleep heartrate weight",
             "state": "3(#0/!~"
         }
