@@ -3,26 +3,34 @@ const axios = require('axios');
 const qs = require('qs');
 
 const DATE_TIME_FORMAT = 'YYYYMMDDTHH:mm:ss';
+
+let _logger = null;
+
+const _LOG = (msg, data) => {
+    if (!_logger) {
+        return;
+    }
+
+    if (_logger.error) {
+        data ? _logger.error(msg, JSON.stringify(data, undefined, 3)) : _logger.error(msg);
+        return;
+    }
+
+    if (typeof(_logger) === 'function') {
+        data ? _logger(msg, JSON.stringify(data, undefined, 3)) : _logger(msg);
+    }
+};
 class Fitbit {
-    constructor(config, persist) {
+    constructor(config) {
         this.config = config;
         this.token = null;
-        this.persist = persist;
-        this.logger = null;
         if (!this.config.timeout) {
             this.config.timeout = 60 * 1000; // default 1 minute
         }
     }
 
-    _LOG(msg, data) {
-        if (!this.logger) {
-            return;
-        }
-        if (this.logger.error) {
-            data ? this.logger.error(msg, JSON.stringify(data, undefined, 3)) : this.logger.error(msg);
-            return;
-        }
-        data ? this.logger(msg, JSON.stringify(data, undefined, 3)) : this.logger(msg);
+    static setLogger(logger) {
+        _logger = logger;
     }
 
     static addExpiresAt(token) {
@@ -47,15 +55,7 @@ class Fitbit {
             var rawToken = typeof(body) === 'string' ? JSON.parse(body) : body;
             var token = Fitbit.addExpiresAt(rawToken);
             fitbit.setToken(token);
-            if (!fitbit.persist) {
-                return cb(null, token);
-            }
-            fitbit.persist(token, (err) => {
-                if (err) {
-                    return cb(err);
-                }
-                cb(null, token);
-            });
+            return cb(null, token);
         } catch (err) {
             cb(err);
         }
@@ -107,22 +107,18 @@ class Fitbit {
         
         promise.then((response) => {
             if (response.status >= 400) {
-                self._LOG("Status Error:", response);
+                _LOG("Status Error:", response);
                 return cb({ response: response || (code ? 'Unknown fitbit fetch token request error.' : 'Unknown fitbit refresh request error.') });
             }
             Fitbit.handleTokenResponse(self, response.data, cb);
         }).catch((error) => {
-            self._LOG("Token Error:", error);
+            _LOG("Token Error:", error);
             cb(new Error((code ? 'token fetch: ' : 'token refresh: ') + error.message))
         });
     }
 
     setToken(token) {
         this.token = token;
-    }
-
-    setLogger(logger) {
-        this.logger = logger;
     }
 
     getToken() {
@@ -186,12 +182,12 @@ class Fitbit {
                         reset: response.headers['fitbit-rate-limit-reset'],
                     };
                     if (response.status >= 400) {
-                        self._LOG("Status Error:", {response});
+                        _LOG("Status Error:", {response});
                         return cb({ response: response || 'Unknown fitbit request error.' });
                     }
                     cb(null, response.data);
                 }).catch((error) => {
-                    self._LOG("Error:", {error});
+                    _LOG("Error:", {error});
                     cb(new Error('request: ' + error.message));
                 });
             },

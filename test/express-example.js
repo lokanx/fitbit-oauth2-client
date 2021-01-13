@@ -3,6 +3,7 @@ const app = express();
 const appConfig = require( './config/app.json' );
 const fs = require( 'fs' );
 const Fitbit = require( '../Fitbit' ); 
+const FilePersistTokenManager = require( '../FilePersistTokenManager' );
 
 const LOGGER = {
     debug: (...argv) => {
@@ -18,6 +19,9 @@ const LOGGER = {
         console.log(argv);
     }
 };
+
+Fitbit.setLogger(LOGGER);
+FilePersistTokenManager.setLogger(LOGGER);
 
 // Simple token persist functions.
 //
@@ -43,7 +47,7 @@ var persist = {
 // Instanciate a fitbit client.  See example config below.
 //
 var fitbit = new Fitbit( appConfig.fitbit ); 
-fitbit.setLogger(LOGGER);
+
 
 // In a browser, http://localhost:4000/fitbit to authorize a user for the first time.
 //

@@ -1,6 +1,7 @@
 const fs     = require( 'fs' );
 const appConfig = require( './config/app.json' );
 const Fitbit = require( '../Fitbit' ); 
+const FilePersistTokenManager = require( '../FilePersistTokenManager' );
 
 
 const LOGGER = {
@@ -18,6 +19,9 @@ const LOGGER = {
     }
 };
 
+Fitbit.setLogger(LOGGER);
+FilePersistTokenManager.setLogger(LOGGER);
+
 const formatError = (err) => {
     return err;
 };
@@ -34,26 +38,10 @@ const parseResponse = (resp) => {
     }
 };
 
-const persist = {
-    read: function( filename, cb ) {
-        LOGGER.debug( 'Reading token file [' + filename + ']');
-        fs.readFile( filename, { encoding: 'utf8', flag: 'r' }, function( err, data ) {
-            if ( err ) return cb( err );
-            try {
-                var token = JSON.parse( data );
-                cb( null, token );
-            } catch( err ) {
-                cb( err );
-            }
-        });
-    },
-    write: function( filename, token, cb ) {
-        LOGGER.debug( 'persisting new token file [' + filename + ']:', JSON.stringify( token ) );
-        fs.writeFile( filename, JSON.stringify( token ), cb );
-    }
-};
+const persist = new FilePersistTokenManager(appConfig.fitbit);
 
-const request = (fitbit, fitbitConfig, options, callback) => {
+
+const request = (fitbit, options, callback) => {
     const self = this;
 
     LOGGER.debug("Making request:", options);
@@ -71,7 +59,7 @@ const request = (fitbit, fitbitConfig, options, callback) => {
         // we must persist the new token.
         if ( token ) {
             LOGGER.debug("Got new token:", token);
-            persist.write( fitbitConfig.tokenFilePath, parseResponse(token), function( err ) {
+            persist.write( parseResponse(token), function( err ) {
                 if ( err ) {
                     LOGGER.error("Error:", JSON.stringify({err: formatError(err)}));                    
                     throw err;
@@ -85,8 +73,8 @@ const request = (fitbit, fitbitConfig, options, callback) => {
     });        
 };
 
-const getProfile = (fitbit, fitbitConfig, callback) => {
-    request(fitbit, fitbitConfig, {
+const getProfile = (fitbit, callback) => {
+    request(fitbit, {
         uri: "https://api.fitbit.com/1/user/-/profile.json",
         method: 'GET',
     }, (data) => {
@@ -96,12 +84,11 @@ const getProfile = (fitbit, fitbitConfig, callback) => {
 };
 
 const init = (fitbitConfig, callback) => {
-    const fitbit = new Fitbit(fitbitConfig);
-    fitbit.setLogger(LOGGER);
+    const fitbit = new Fitbit(fitbitConfig);    
 
     // Read the persisted token, initially captured by a webapp.
     //     
-    persist.read( fitbitConfig.tokenFilePath, function( err, token ) {
+    persist.read( function( err, token ) {
         if ( err ) {
             LOGGER.error( err );
             throw err;
@@ -112,7 +99,7 @@ const init = (fitbitConfig, callback) => {
 
         if (!token.expires_at) {
             token = Fitbit.addExpiresAt(token);
-            persist.write( fitbitConfig.tokenFilePath, token, function( err ) {
+            persist.write( token, function( err ) {
                 if ( err ) {
                     LOGGER.error( err );
                     throw err;
@@ -143,7 +130,7 @@ describe('request', () => {
         if (token.expires_at) {
             delete token.expires_at;
         }
-        getProfile(fitbit, appConfig.fitbit, () => {
+        getProfile(fitbit, () => {
             done();
         });        
     });
