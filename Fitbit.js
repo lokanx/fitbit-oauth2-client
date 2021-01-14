@@ -1,8 +1,9 @@
-const async = require('async');
 const axios = require('axios');
 const qs = require('qs');
 
-const DATE_TIME_FORMAT = 'YYYYMMDDTHH:mm:ss';
+const JSON_IDENT = 3;
+const DEFAULT_TIMEOUT = 60000; // 1 minute
+const HTTP_STATUS_400 = 400;
 
 let _logger = null;
 
@@ -12,20 +13,31 @@ const _LOG = (msg, data) => {
     }
 
     if (_logger.error) {
-        data ? _logger.error(msg, JSON.stringify(data, undefined, 3)) : _logger.error(msg);
+        data ? _logger.error(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger.error(msg);
         return;
     }
 
     if (typeof(_logger) === 'function') {
-        data ? _logger(msg, JSON.stringify(data, undefined, 3)) : _logger(msg);
+        data ? _logger(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger(msg);
     }
 };
 class Fitbit {
-    constructor(config) {
-        this.config = config;
-        this.token = null;
-        if (!this.config.timeout) {
-            this.config.timeout = 60 * 1000; // default 1 minute
+    constructor(config, tokenManager) {
+        if (!config) {
+            throw new Error('Config expected');
+        }
+        if (!tokenManager ) {
+            throw new Error('Token persist managaer expected');
+        }
+        if (!tokenManager.read || !tokenManager.write) {
+            throw new Error('Token perist manager must define methods read and write');
+        }
+
+        this._config = {...config};
+        this._tokenManager = tokenManager;        
+        this._token = null;
+        if (!this._config.timeout) {
+            this._config.timeout = DEFAULT_TIMEOUT;
         }
     }
 
@@ -34,7 +46,7 @@ class Fitbit {
     }
 
     static addExpiresAt(token) {
-        let now = new Date();
+        const now = new Date();
         now.setSeconds(now.getSeconds() + token.expires_in);
         const expires_at = now.toISOString();        
         return {...token, expires_at};
@@ -45,158 +57,144 @@ class Fitbit {
             return true;
         }
 
-        let then = new Date(token.expires_at);
-        let now = new Date();
+        const then = new Date(token.expires_at);
+        const now = new Date();
         return (now.getTime() >= then.getTime());
     }
 
-    static handleTokenResponse(fitbit, body, cb) {
-        try {
-            var rawToken = typeof(body) === 'string' ? JSON.parse(body) : body;
-            var token = Fitbit.addExpiresAt(rawToken);
-            fitbit.setToken(token);
-            return cb(null, token);
-        } catch (err) {
-            cb(err);
-        }
-    }
-
     authorizeURL() {        
-          const { ClientCredentials, ResourceOwnerPassword, AuthorizationCode } = require('simple-oauth2');
+          const { AuthorizationCode } = require('simple-oauth2');
           const config = {
             client: {
-              id: this.config.creds.clientID,
-              secret: this.config.creds.clientSecret
+              id: this._config.creds.clientID,
+              secret: this._config.creds.clientSecret
             },
             auth: {
-              tokenHost: this.config.uris.authorizationUri,
-              tokenPath: this.config.uris.tokenPath,
-              authorizePath: this.config.uris.authorizationPath
+              tokenHost: this._config.uris.authorizationUri,
+              tokenPath: this._config.uris.tokenPath,
+              authorizePath: this._config.uris.authorizationPath
             }
           };    
           const client = new AuthorizationCode(config);
-          return client.authorizeURL(this.config.authorization_uri);
+          return client.authorizeURL(this._config.authorization_uri);
     }
 
-    fetchToken(code = null, cb = null) {
+    fetchToken(code = null) {
         const self = this;
-        const url = self.config.uris.tokenUri + self.config.uris.tokenPath;
+        const url = self._config.uris.tokenUri + self._config.uris.tokenPath;
         const data = qs.stringify(code ? {
             code: code,
-            redirect_uri: self.config.authorization_uri.redirect_uri,
+            redirect_uri: self._config.authorization_uri.redirect_uri,
             grant_type: 'authorization_code',
-            client_id: self.config.creds.clientID,
-            client_secret: self.config.creds.clientSecret,
+            client_id: self._config.creds.clientID,
+            client_secret: self._config.creds.clientSecret,
         } : {
             'grant_type': 'refresh_token',
-            'refresh_token': self.token.refresh_token
+            'refresh_token': self._token.refresh_token
         });
         const config = {
             headers: { 
-                'Authorization': 'Basic ' + Buffer.from(self.config.creds.clientID + ':' + self.config.creds.clientSecret).toString('base64'),
+                'Authorization': 'Basic ' + Buffer.from(self._config.creds.clientID + ':' + self._config.creds.clientSecret).toString('base64'),
                 'Accept': 'application/json, text/plain, */*',
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
-            timeout: self.config.timeout
+            timeout: self._config.timeout
         };
-        const promise = axios.post(url, data, config);
-        
-        if (!cb) {
-            return promise;
-        }
-        
-        promise.then((response) => {
-            if (response.status >= 400) {
-                _LOG("Status Error:", response);
-                return cb({ response: response || (code ? 'Unknown fitbit fetch token request error.' : 'Unknown fitbit refresh request error.') });
+        return axios.post(url, data, config).then(response => {
+            if (response.status >= HTTP_STATUS_400) {
+                _LOG('Status Error:', response);
+                const error = new Error((code ? 'Unknown fitbit fetch token request error.' : 'Unknown fitbit refresh request error.'));
+                error.response = response;
+                error.config = config;
+                error.data = data;
+                error.url = url;
+                throw error;
             }
-            Fitbit.handleTokenResponse(self, response.data, cb);
-        }).catch((error) => {
-            _LOG("Token Error:", error);
-            cb(new Error((code ? 'token fetch: ' : 'token refresh: ') + error.message))
+            const token = Fitbit.addExpiresAt(response.data);
+            self._token = token;
+            return token;
+        }).then(token => {
+            return self._tokenManager.write(token);
         });
-    }
-
-    setToken(token) {
-        this.token = token;
     }
 
     getToken() {
-        return this.token;
+        return this._token;
     }
 
-    refresh(cb = null) {
-        return this.fetchToken(null, cb);
+    refresh() {
+        return this.fetchToken(null);
     }
 
-    // The callback gets three params: err, body, token.  If token is not null, that
-    // means a token refresh was performed, and the token is the new token.  If tokens
-    // are persisted by the caller, the caller should persist this new token.  If the
-    // token is null, then a refresh was not performed and the existing token is still valid.
-    //
-    request(options, cb) {
+    request(options) {
         var self = this;
 
-        if (!self.token) {
-            return cb(new Error('must setToken() or getToken() before calling request()'));
-        }
-        
-        if (!self.token.access_token) {
-            return cb(new Error('token appears corrupt: ' + JSON.stringify(self.token)));
-        }
-
-        async.series([
-            function (cb) {
-                if (Fitbit.hasTokenExpired(self.token)) {
-                    self.refresh(cb);
-                } else {
-                    cb();
-                }
-            },
-            function (cb) {
-                if (!options.timeout) {
-                    options.timeout = self.config.timeout;
-                }
-
-                if (!options.url && options.uri) {
-                    options.url = options.uri;
-                    delete options.uri;
-                }
-                if (!options.headers) { 
-                    options.headers = {};
-                }
-
-                if (!options.headers.Authorization) {
-                    options.headers.Authorization = 'Bearer ' + self.token.access_token;
-                }
-
-                const promise = axios.request(options);
-                if (!cb) {
-                    return promise;
-                }
-
-                promise.then((response) => {
-                    self.limits = {
-                        limit: response.headers['fitbit-rate-limit-limit'],
-                        remaining: response.headers['fitbit-rate-limit-remaining'],
-                        reset: response.headers['fitbit-rate-limit-reset'],
-                    };
-                    if (response.status >= 400) {
-                        _LOG("Status Error:", {response});
-                        return cb({ response: response || 'Unknown fitbit request error.' });
-                    }
-                    cb(null, response.data);
-                }).catch((error) => {
-                    _LOG("Error:", {error});
-                    cb(new Error('request: ' + error.message));
+        const performRequest = () => {
+            if (!self._token.access_token) {
+                return new Promise((resolve, reject) => {
+                    const error = new Error('token appears corrupt: ' + JSON.stringify(self._token));
+                    reject(error);
                 });
-            },
-        ], function (err, results) {
-            if (err) {
-                return cb(err);
             }
-            cb(null, results[1], results[0]);
-        });
+
+            if (!options.timeout) {
+                options.timeout = self._config.timeout;
+            }
+
+            if (!options.url && options.uri) {
+                options.url = options.uri;
+                delete options.uri;
+            }
+            if (!options.headers) {
+                options.headers = {};
+            }
+
+            if (!options.headers.Authorization) {
+                options.headers.Authorization = 'Bearer ' + self._token.access_token;
+            }
+
+            return axios.request(options).then((response) => {
+                self.limits = {
+                    limit: response.headers['fitbit-rate-limit-limit'],
+                    remaining: response.headers['fitbit-rate-limit-remaining'],
+                    reset: response.headers['fitbit-rate-limit-reset'],
+                };
+                if (response.status >= HTTP_STATUS_400) {
+                    _LOG('Status Error:', response);
+                    const error = new Error('Unknown fitbit fetch request error.');
+                    error.response = response;
+                    error.options = options;
+                    throw error;
+                }
+                return response;               
+            });
+        };
+
+        if (!self._token) {
+            return self._tokenManager.read().then(token => {
+                if (!token.expires_at) {
+                    token = Fitbit.addExpiresAt(token);
+                    self._token = token;
+                    return self._tokenManager.write(token);
+                }
+                self._token = token;
+                return token;
+            }).then(token => {
+                if (Fitbit.hasTokenExpired(token)) {
+                    return self.refresh();
+                }
+
+                return token;
+            }).then(() => {
+                return performRequest();
+            });
+        } else if (Fitbit.hasTokenExpired(self._token)) {
+            return self.refresh().then(() => {
+                return performRequest();
+            });
+        }
+
+        return performRequest();
     }
 
     getLimits() {

@@ -1,0 +1,46 @@
+{
+    "env": {
+        "node": true,
+        "browser": false,
+        "commonjs": true,
+        "es2021": true,
+        "jest": true
+    },
+    "extends": [
+        "eslint:recommended"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+        "ecmaVersion": 12
+    },
+    "plugins": [
+    ],
+    "globals": {
+    },
+    "rules": {
+        "semi": "error",
+        "curly": "error",
+        "eqeqeq": "error",
+        "no-unused-vars": "error",
+        "no-extra-boolean-cast": "error",
+        "no-mixed-spaces-and-tabs": "error",
+        "no-eq-null": "error",
+        "default-case": "error",
+        "no-global-assign": ["error", {"exceptions": ["Object"]}],
+        "no-return-assign": "error",
+        "no-empty-pattern": "error",
+        "guard-for-in": "error",
+        "no-redeclare": "error",
+        "no-shadow": ["error", { "builtinGlobals": false, "hoist": "functions", "allow": [] }],
+        "no-shadow-restricted-names": "error",
+        "no-magic-numbers": ["error", { "ignoreArrayIndexes": true, "ignore": [-1, 0, 1] }],
+        "no-unsafe-negation": "error",
+        "no-else-return": "error",
+		// Complexity
+        "max-nested-callbacks": ["error", { "max": 6 }],
+		"max-depth": ["error", 4],
+        "max-params": ["error", 5],
+        "complexity": ["error", { "max": 20 }],
+        "max-statements": ["error", { "max": 40 }]
+    }
+}

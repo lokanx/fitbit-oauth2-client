@@ -1,9 +1,8 @@
 const express = require('express');
 const app = express();
 const appConfig = require( './config/app.json' );
-const fs = require( 'fs' );
 const Fitbit = require( '../Fitbit' ); 
-const FilePersistTokenManager = require( '../FilePersistTokenManager' );
+const FileTokenManager = require( '../FileTokenManager' );
 
 const LOGGER = {
     debug: (...argv) => {
@@ -20,33 +19,15 @@ const LOGGER = {
     }
 };
 
-Fitbit.setLogger(LOGGER);
-FilePersistTokenManager.setLogger(LOGGER);
+const JSON_INDENT = 3;
+const EXPRESS_HTTP_PORT = 4000;
 
-// Simple token persist functions.
-//
-var tfile = appConfig.fitbit.tokenFilePath;
-var persist = {
-    read: function( filename, cb ) {
-        fs.readFile( filename, { encoding: 'utf8', flag: 'r' }, function( err, data ) {
-            if ( err ) return cb( err );
-            try {
-                var token = JSON.parse( data );
-                cb( null, token );
-            } catch( err ) {
-                cb( err );
-            }
-        });
-    },
-    write: function( filename, token, cb ) {
-        console.log( 'persisting new token:', JSON.stringify( token ) );
-        fs.writeFile( filename, JSON.stringify( token ), cb );
-    }
-};
+Fitbit.setLogger(LOGGER);
+FileTokenManager.setLogger(LOGGER);
 
 // Instanciate a fitbit client.  See example config below.
 //
-var fitbit = new Fitbit( appConfig.fitbit ); 
+var fitbit = new Fitbit( appConfig.fitbit, new FileTokenManager(appConfig.fitbit.tokenFilePath) ); 
 
 
 // In a browser, http://localhost:4000/fitbit to authorize a user for the first time.
@@ -61,15 +42,12 @@ app.get('/fitbit', function (req, res) {
 //
 app.get('/fitbit_auth_callback', function (req, res, next) {
     var code = req.query.code;
-    fitbit.fetchToken( code, function( err, token ) {
-        if ( err ) return next( err );
-        
-        // persist the token
-        persist.write( tfile, token, function( err ) {
-            if ( err ) return next( err );
-            res.redirect( '/fb-profile' );
-        });
-    });
+    fitbit.fetchToken(code).then(token => {
+        LOGGER.debug("Token fetched and persisted: ", token);
+        res.redirect( '/fb-profile' );
+    }).catch(err => {
+        next( err );
+    });    
 });
 
 // Call an API.  fitbit.request() mimics nodejs request() library, automatically
@@ -81,17 +59,11 @@ app.get( '/fb-profile', function( req, res, next ) {
     fitbit.request({
         uri: "https://api.fitbit.com/1/user/-/profile.json",
         method: 'GET',
-    }, function( err, profile, token ) {
-        if ( err ) return next( err );
-        // if token is not null, a refesh has happened and we need to persist the new token
-        if ( token )
-            persist.write( tfile, token, function( err ) {
-                if ( err ) return next( err );
-                    res.send( '<pre>' + JSON.stringify( profile, null, 2 ) + '</pre>' );
-            });
-        else
-            res.send( '<pre>' + JSON.stringify( profile, null, 2 ) + '</pre>' );
+    }).then(response => {
+        res.send( '<pre>' + JSON.stringify( response.data, null, JSON_INDENT ) + '</pre>' );
+    }).catch(err => {
+        next( err );
     });
 });
 
-app.listen(4000);
+app.listen(EXPRESS_HTTP_PORT);

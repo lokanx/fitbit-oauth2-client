@@ -1,8 +1,6 @@
-const fs     = require( 'fs' );
 const appConfig = require( './config/app.json' );
 const Fitbit = require( '../Fitbit' ); 
-const FilePersistTokenManager = require( '../FilePersistTokenManager' );
-
+const FileTokenManager = require( '../FileTokenManager' );
 
 const LOGGER = {
     debug: (...argv) => {
@@ -20,118 +18,69 @@ const LOGGER = {
 };
 
 Fitbit.setLogger(LOGGER);
-FilePersistTokenManager.setLogger(LOGGER);
+FileTokenManager.setLogger(LOGGER);
 
-const formatError = (err) => {
-    return err;
-};
-
-const parseResponse = (resp) => {
-    try {
-        if (typeof(resp) === "string") {
-            return JSON.parse( resp );
-        }
-        
-        return resp;
-    } catch (err) {
-        LOGGER.error("Failed parse response of type " + typeof(resp) + ": " + JSON.stringify(resp), err);
-    }
-};
-
-const persist = new FilePersistTokenManager(appConfig.fitbit);
-
-
-const request = (fitbit, options, callback) => {
-    const self = this;
-
+const request = (fitbit, options) => {
     LOGGER.debug("Making request:", options);
 
     // Make an API call
-    fitbit.request(options, function( err, body, token ) {
-        if ( err ) {
-            LOGGER.error("Error:", JSON.stringify({err: formatError(err), body, token} ));
-            throw err;
-        }
-        
-        LOGGER.debug('Received data:', {err, body, token});
-
-        // If the token arg is not null, then a refresh has occured and
-        // we must persist the new token.
-        if ( token ) {
-            LOGGER.debug("Got new token:", token);
-            persist.write( parseResponse(token), function( err ) {
-                if ( err ) {
-                    LOGGER.error("Error:", JSON.stringify({err: formatError(err)}));                    
-                    throw err;
-                } else {
-                    callback(parseResponse( body ));        
-                }                
-            });
-        } else {
-            callback(parseResponse( body ));
-        }
-    });        
+    return fitbit.request(options).then(response => {
+        LOGGER.debug('Received response:', {response});
+        return response;
+    }).catch(error => {
+        LOGGER.error(error);
+        LOGGER.error(`Request ${options.url} failed: ` + error.messsage||'', {error});
+        throw error;
+    });  
 };
 
-const getProfile = (fitbit, callback) => {
-    request(fitbit, {
-        uri: "https://api.fitbit.com/1/user/-/profile.json",
+const getProfile = (fitbit) => {
+    return request(fitbit, {
+        url: "https://api.fitbit.com/1/user/-/profile.json",
         method: 'GET',
-    }, (data) => {
-        LOGGER.debug("Profile Data:", data);
-        callback(data);
+    }).then(response => {
+        LOGGER.debug("Received profile Data:", response.data);
+        return response.data;
+    }).catch(error => {
+        LOGGER.error(error);
+        throw error;
     });
 };
-
-const init = (fitbitConfig, callback) => {
-    const fitbit = new Fitbit(fitbitConfig);    
-
-    // Read the persisted token, initially captured by a webapp.
-    //     
-    persist.read( function( err, token ) {
-        if ( err ) {
-            LOGGER.error( err );
-            throw err;
-        }
-
-        // Set the client's token
-        fitbit.setToken( token );
-
-        if (!token.expires_at) {
-            token = Fitbit.addExpiresAt(token);
-            persist.write( token, function( err ) {
-                if ( err ) {
-                    LOGGER.error( err );
-                    throw err;
-                } else {
-                    callback();        
-                }                
-            });
-        } else {
-            callback();
-        }
-
-    });
-
-    return fitbit;
-}
 
 describe('request', () => {
     let fitbit;
-    beforeEach((done) => {
-        fitbit = init(appConfig.fitbit, () => {
-            done();
-        });
+    let fileTokenManager;
+
+    beforeEach(() => {
+        const fitbitConfig = appConfig.fitbit;
+        fileTokenManager = new FileTokenManager(fitbitConfig.tokenFilePath);
+        fitbit = new Fitbit(fitbitConfig, fileTokenManager);    
     });
 
-    test('getProfile', (done) => {
-        console.log('ACTIVE TOKEN:', fitbit.getToken());
-        const token = fitbit.getToken();
-        if (token.expires_at) {
-            delete token.expires_at;
-        }
-        getProfile(fitbit, () => {
+    test('getProfile - expired token', (done) => {        
+        fileTokenManager.read().then(token => {
+            if (token.expires_at) {
+                delete token.expires_at;
+            }
+            fitbit._token = token;
+            getProfile(fitbit).finally(() => {
+                done();
+            });                        
+        });    
+    });
+
+    test('getProfile - no token', (done) => {        
+        getProfile(fitbit).finally(() => {
             done();
         });        
+    });
+
+    test('getProfile - has token', (done) => {        
+        fileTokenManager.read().then(token => {
+            fitbit._token = token;
+            getProfile(fitbit).finally(() => {
+                done();
+            });                        
+        });    
     });
 });
