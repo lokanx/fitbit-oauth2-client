@@ -1,6 +1,7 @@
 const appConfig = require( './config/app.json' );
 const Fitbit = require( '../Fitbit' ); 
 const FileTokenManager = require( '../FileTokenManager' );
+const fs = require('fs');
 
 const LOGGER = {
     debug: (...argv) => {
@@ -15,6 +16,33 @@ const LOGGER = {
     error: (...argv) => {
         console.log(argv);
     }
+};
+
+const deleteFile = (filePath, done = null) => {
+    if (!filePath.startsWith("/tmp")) {
+        throw new Error("Limited scope to be safe, all files must be under /tmp");
+    }
+    fs.unlink(filePath, () => {
+        if (done) {
+            done();
+        }
+    });
+};
+
+const createFile = (filePath, fileContent) => {
+    if (!filePath.startsWith("/tmp")) {
+        throw new Error("Limited scope to be safe, all files must be under /tmp");
+    }
+    return new Promise((resolve, reject) => {
+        fs.writeFile( filePath, JSON.stringify( fileContent ), { encoding: 'utf8', flag: 'w' }, (error) => {
+            if (error) {
+                LOGGER.error("Failed create file: " + filePath, {error, fileContent});
+                reject(error);
+            } else {
+                resolve();
+            }
+        });
+    });
 };
 
 Fitbit.setLogger(LOGGER);
@@ -47,7 +75,69 @@ const getProfile = (fitbit) => {
     });
 };
 
-describe('request', () => {
+describe('FileTokenManager.read', () => {
+    const filePath = '/tmp/FileTokenManager.read.json';
+    let fileTokenManager;
+    beforeEach(() => {
+        fileTokenManager = new FileTokenManager(filePath);
+    });
+
+    afterEach((done) => {
+        deleteFile(filePath, done);
+    });
+
+    test('read - no file', (done) => {      
+        fileTokenManager.read().then(() => {
+            done.fail('it should not reach here');
+        }).catch(error => {
+            console.log("Error", error);
+            done();
+        });    
+    });
+
+    test('read - existing file', (done) => {      
+        createFile(filePath, {test: 'test str', test2: 123}).then(() => {
+            fileTokenManager.read().then(() => {
+                done();                
+            }).catch(error => {
+                console.log("Error", error);
+                done.fail('it should not reach here');
+            });        
+        });
+    });
+});
+
+describe('FileTokenManager.write', () => {
+    const filePath = '/tmp/FileTokenManager.write.json';
+    let fileTokenManager;
+    beforeEach(() => {
+        fileTokenManager = new FileTokenManager(filePath);
+    });
+
+    afterEach((done) => {
+        deleteFile(filePath, done);
+    });
+
+    test('write - file update', (done) => {
+        try {
+            createFile(filePath, {test: 'test str', test2: 123}).then(() => {
+                fileTokenManager.read().then((data) => {
+                    expect(data.test).toBe('test str');
+                    fileTokenManager.write({test: 'test str 2'}).then(() => {
+                        fileTokenManager.read().then((data2) => {
+                            expect(data2.test).toBe('test str 2');
+                            done();
+                        });
+                    });        
+                });
+            });
+        } catch (error) {
+            done.fail(error);
+        }
+    });
+});
+
+describe('Fitbit.request', () => {
     let fitbit;
     let fileTokenManager;
 
@@ -57,7 +147,7 @@ describe('request', () => {
         fitbit = new Fitbit(fitbitConfig, fileTokenManager);    
     });
 
-    test('getProfile - expired token', (done) => {        
+    test('getProfile - expired token', (done) => {      
         fileTokenManager.read().then(token => {
             if (token.expires_at) {
                 delete token.expires_at;

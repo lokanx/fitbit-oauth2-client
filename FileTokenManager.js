@@ -48,7 +48,7 @@ class FileTokenManager {
     write(token) {
         return new Promise((resolve, reject) => {
             _LOG( 'Writing token file [' + this._tokenFilePath + ']:', token );
-            fs.writeFile( this._tokenFilePath, JSON.stringify( token ), (err) => {
+            fs.writeFile( this._tokenFilePath, JSON.stringify( token ), { encoding: 'utf8', flag: 'w' }, (err) => {
                 if (err) {
                     reject(err);
                 } else {
