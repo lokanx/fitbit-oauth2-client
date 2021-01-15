@@ -2,7 +2,7 @@
   "name": "fitbit-oauth2-client",
   "version": "0.0.3",
   "description": "Fitbit client API for OAuth2",
-  "main": "Fitbit.js",
+  "main": "index.js",
   "jest": {
     "collectCoverageFrom": [
       "<rootDir>/**/*.{js,jsx,ts,tsx}",

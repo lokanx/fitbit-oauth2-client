@@ -1,8 +1,7 @@
 const express = require('express');
 const app = express();
 const appConfig = require( './config/app.json' );
-const Fitbit = require( '../Fitbit' ); 
-const FileTokenManager = require( '../FileTokenManager' );
+const {Fitbit, FileTokenManager} = require( '../index' );
 
 const LOGGER = {
     debug: (...argv) => {

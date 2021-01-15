@@ -140,7 +140,7 @@ class Fitbit {
             }
 
             return axios.request(options).then((response) => {
-                _LOG(`Request ${options.url}:`, response);
+                _LOG(`Request ${options.url}:`, (response.toString ? response.toString() : (response.data ? response.data : "...")));
                 if (response.headers) {
                     self.limits = {
                         limit: response.headers['fitbit-rate-limit-limit'],

@@ -1,7 +1,5 @@
 # Fitbit OAuth2 Client
 
-Based on: https://github.com/Info-World/fitbit-oauth2
-
 Client library to support interfacing with the Fitbit API using OAuth2.
 
 This library implements the Authorization Code Grant Flow for Fitbit.  Specifically, this flow
@@ -10,65 +8,47 @@ user authorization must be done in a browser environment.  If the token returned
 (to a database for example), then subsequent API calls may be made on behalf of the user by
 webserver or by non-webserver code.  This library automatically handles token refreshes.
 
+This is a complete rewrite of code from https://github.com/peebles/fitbit-oauth2 (and https://github.com/Info-World/fitbit-oauth2).
+The reason for the rewrite was that the code was old and utilized libraries that contained security problems.
+
+
 ## Usage Example
 
 ### In a webapp
 
-    var express = require('express');
-    var app     = express();
-    var config  = require( './config/app.json' );
-    var fs      = require( 'fs' );
+    const express = require('express');
+    const app = express();
+    const appConfig = require( './config/appConfig' );
+    const {Fitbit, FileTokenManager} = require( 'fitbit-oauth2-client' ); 
     
-    var Fitbit  = require( 'fitbit-oauth2' );
-    
-    // Simple token persist functions.
-    //
-    var tfile = 'fb-token.json';
-    var persist = {
-        read: function( filename, cb ) {
-            fs.readFile( filename, { encoding: 'utf8', flag: 'r' }, function( err, data ) {
-                if ( err ) return cb( err );
-                try {
-                    var token = JSON.parse( data );
-                    cb( null, token );
-                } catch( err ) {
-                    cb( err );
-                }
-            });
-        },
-        write: function( filename, token, cb ) {
-            console.log( 'persisting new token:', JSON.stringify( token ) );
-            fs.writeFile( filename, JSON.stringify( token ), cb );
-        }
-    };
-    
+    const JSON_INDENT = 3;
+    const EXPRESS_HTTP_PORT = 4000;
+
     // Instanciate a fitbit client.  See example config below.
     //
-    var fitbit = new Fitbit( config.fitbit ); 
-    
+    var fitbit = new Fitbit( appConfig.fitbit, new FileTokenManager(appConfig.fitbit.tokenFilePath) ); 
+
+
     // In a browser, http://localhost:4000/fitbit to authorize a user for the first time.
     //
     app.get('/fitbit', function (req, res) {
         res.redirect( fitbit.authorizeURL() );
     });
-    
+
     // Callback service parsing the authorization token and asking for the access token.  This
     // endpoint is refered to in config.fitbit.authorization_uri.redirect_uri.  See example
     // config below.
     //
     app.get('/fitbit_auth_callback', function (req, res, next) {
         var code = req.query.code;
-        fitbit.fetchToken( code, function( err, token ) {
-            if ( err ) return next( err );
-            
-            // persist the token
-            persist.write( tfile, token, function( err ) {
-                if ( err ) return next( err );
-                res.redirect( '/fb-profile' );
-            });
-        });
+        fitbit.fetchToken(code).then(token => {
+            LOGGER.debug("Token fetched and persisted: ", token);
+            res.redirect( '/fb-profile' );
+        }).catch(err => {
+            next( err );
+        });    
     });
-    
+
     // Call an API.  fitbit.request() mimics nodejs request() library, automatically
     // adding the required oauth2 headers.  The callback is a bit different, called
     // with ( err, body, token ).  If token is non-null, this means a refresh has happened
@@ -78,21 +58,14 @@ webserver or by non-webserver code.  This library automatically handles token re
         fitbit.request({
             uri: "https://api.fitbit.com/1/user/-/profile.json",
             method: 'GET',
-        }, function( err, body, token ) {
-            if ( err ) return next( err );
-            var profile = JSON.parse( body );
-            // if token is not null, a refesh has happened and we need to persist the new token
-            if ( token )
-                persist.write( tfile, token, function( err ) {
-                    if ( err ) return next( err );
-                        res.send( '<pre>' + JSON.stringify( profile, null, 2 ) + '</pre>' );
-                });
-            else
-                res.send( '<pre>' + JSON.stringify( profile, null, 2 ) + '</pre>' );
+        }).then(response => {
+            res.send( '<pre>' + JSON.stringify( response.data, null, JSON_INDENT ) + '</pre>' );
+        }).catch(err => {
+            next( err );
         });
     });
-    
-    app.listen(4000);
+
+    app.listen(EXPRESS_HTTP_PORT);
 
 ### Outside of a webapp
 
@@ -100,69 +73,26 @@ Once a token has been persisted, you can write non-webapp code to call Fitbit AP
 the token expires, this library will automatically refresh the token and carry on.  Here's
 an example:
 
-    var config = require( './config/app' );
-    var fs     = require( 'fs' );
-    var Fitbit = require( 'fitbit-oauth2' );
-    
-    // Simple token persist code
-    //
-    var tfile = 'fb-token.json';
-    var persist = {
-        read: function( filename, cb ) {
-            fs.readFile( filename, { encoding: 'utf8', flag: 'r' }, function( err, data ) {
-                if ( err ) return cb( err );
-                try {
-                    var token = JSON.parse( data );
-                    cb( null, token );
-                } catch( err ) {
-                    cb( err );
-                }
-            });
-        },
-        write: function( filename, token, cb ) {
-            console.log( 'persisting new token:', JSON.stringify( token ) );
-            fs.writeFile( filename, JSON.stringify( token ), cb );
-        }
-    };
-    
-    // Instanciate the client
-    //
-    var fitbit = new Fitbit( config.fitbit );
-    
-    // Read the persisted token, initially captured by a webapp.
-    //
-    persist.read( tfile, function( err, token ) {
-        if ( err ) {
-            console.log( err );
-            process.exit(1);
-        }
-    
-        // Set the client's token
-        fitbit.setToken( token );
-    
-        // Make an API call
-        fitbit.request({
-            uri: "https://api.fitbit.com/1/user/-/profile.json",
-            method: 'GET',
-        }, function( err, body, token ) {
-            if ( err ) {
-                console.log( err );
-                process.exit(1);
-            }
-            console.log( JSON.stringify( JSON.parse( body ), null, 2 ) );
-    
-            // If the token arg is not null, then a refresh has occured and
-            // we must persist the new token.
-            if ( token )
-                persist.write( tfile, token, function( err ) {
-                if ( err ) console.log( err );
-                    process.exit(0);
-                });
-            else
-                process.exit(0);
-        });
-    });
+    const appConfig = require( './config/appConfig' );
+    const {Fitbit, FileTokenManager} = require( 'fitbit-oauth2-client' ); 
 
+    const JSON_INDENT = 3;
+    const EXPRESS_HTTP_PORT = 4000;
+
+    // Instanciate a fitbit client.  See example config below.
+    //
+    var fitbit = new Fitbit( appConfig.fitbit, new FileTokenManager(appConfig.fitbit.tokenFilePath) ); 
+
+    // Make an API call
+    fitbit.request({
+        uri: "https://api.fitbit.com/1/user/-/profile.json",
+        method: 'GET',
+    }).then(response => {
+        console.log("Profile:", JSON.stringify( response.data, null, JSON_INDENT ));
+        process.exit(0);
+    }).catch(err => {
+        process.exit(-1);
+    });
 ## Configuration
 
 An example configuration file:
@@ -174,6 +104,7 @@ An example configuration file:
                 "clientID": "YOUR-CIENT-ID",
                 "clientSecret": "YOUR-CLIENT-SECRET"
             },
+            "tokenFilePath": "./path/to/my-token-file.json",
             "uris": {
                 "authorizationUri": "https://www.fitbit.com",
                 "authorizationPath": "/oauth2/authorize",
@@ -202,43 +133,39 @@ A token is a JSON blob, and looks like this:
 
 ## API
 
-#### `new Fitbit( config )`
-Constructor.  See example config above.
+#### `new Fitbit( config, persistManager )`
+Constructor.  See example config above. Persist manager must define methods read, write. Both methods should return a promise, see FileTokenManager.js for an example.
 
-#### `new Fitbit( config, persistTokenCB )`
-Alternative constructor.  If called with a function as the second parameter, that function will be called when
-a new token has been fetched as the result of a token refresh.  The function is called with the new token (as
-a JSON struct) and a callback.  When the function is finished it should call the callback.  Example:
+    {
+        read() {
+            return new Promise((resolve, reject) => {
+                // Do you magic here, for example read from an database
+            });
+        }
 
-    var fitbit = new Fitbit( config, function( token, cb ) {
-        saveToken( JSON.stringify( token ), function( err ) {
-            if ( err ) return cb( err );
-            cb();
-        });
-    });
+        write(token) {
+            return new Promise((resolve, reject) => {
+                // Do you magic here, for example write to an database
+            });
+        }
+    }
 
-#### `setToken( token )`
-Set the client token.  The client token must be set before a call to request() is made.  In a webapp,
-the client token will be set when initial authorization happens.  In a non-webapp, you must obtain
-the token from persistent storage and call this method.
+The library provides a token manager that reads/writes to file (FileTokenManager).
 
-#### `getToken()`
-Returns the client token if it has been set, null otherwise.
-
-#### `authorizeURL()`
+#### `authorizeURL(): String`
 Used in a webapp to get the authorization URL to start the OAuth2 handshake.  Typical usage:
 
     app.get( '/auth', function( req, res ) {
         res.redirect( fitbit.authorizeURL() );
     });
 
-#### `fetchToken( code, cb )`
+#### `fetchToken( code ): Promise`
 Used in a webapp to handle the second step of OAuth2 handshake, to obtain the token from Fitbit.  See
 example above for usage.
 
-#### `request( options, cb )`
-Call a Fitbit API.  The options structure is the same as nodejs request library and in fact is passed
-almost strait through to request().  The cb() is called with (err, body, token).  If token is not
+#### `request( options ): Promise`
+Call a Fitbit API.  The options structure is the same as axios library and in fact is passed
+almost strait through to axios.  The cb() is called with (err, body, token).  If token is not
 null, then it means that a token refresh has happened and you should persist the new token.
 
 #### `getLimits()`

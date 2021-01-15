@@ -28,7 +28,6 @@ class FileTokenManager {
     }
 
     read() {
-
         return new Promise((resolve, reject) => {
             _LOG( 'Reading token file [' + this._tokenFilePath + ']');
             fs.readFile( this._tokenFilePath, { encoding: 'utf8', flag: 'r' }, function( err, data ) {
