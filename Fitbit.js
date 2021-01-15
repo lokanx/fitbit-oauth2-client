@@ -3,7 +3,6 @@ const qs = require('qs');
 
 const JSON_IDENT = 3;
 const DEFAULT_TIMEOUT = 60000; // 1 minute
-const HTTP_STATUS_400 = 400;
 
 let _logger = null;
 
@@ -101,25 +100,12 @@ class Fitbit {
             timeout: self._config.timeout
         };
         return axios.post(url, data, config).then(response => {
-            if (response.status >= HTTP_STATUS_400) {
-                _LOG('Status Error:', response);
-                const error = new Error((code ? 'Unknown fitbit fetch token request error.' : 'Unknown fitbit refresh request error.'));
-                error.response = response;
-                error.config = config;
-                error.data = data;
-                error.url = url;
-                throw error;
-            }
             const token = Fitbit.addExpiresAt(response.data);
             self._token = token;
             return token;
         }).then(token => {
             return self._tokenManager.write(token);
         });
-    }
-
-    getToken() {
-        return this._token;
     }
 
     refresh() {
@@ -154,17 +140,13 @@ class Fitbit {
             }
 
             return axios.request(options).then((response) => {
-                self.limits = {
-                    limit: response.headers['fitbit-rate-limit-limit'],
-                    remaining: response.headers['fitbit-rate-limit-remaining'],
-                    reset: response.headers['fitbit-rate-limit-reset'],
-                };
-                if (response.status >= HTTP_STATUS_400) {
-                    _LOG('Status Error:', response);
-                    const error = new Error('Unknown fitbit fetch request error.');
-                    error.response = response;
-                    error.options = options;
-                    throw error;
+                _LOG(`Request ${options.url}:`, response);
+                if (response.headers) {
+                    self.limits = {
+                        limit: response.headers['fitbit-rate-limit-limit'],
+                        remaining: response.headers['fitbit-rate-limit-remaining'],
+                        reset: response.headers['fitbit-rate-limit-reset'],
+                    };
                 }
                 return response;               
             });

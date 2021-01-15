@@ -16,6 +16,7 @@
     "plugins": [
     ],
     "globals": {
+        "fail": "readonly"
     },
     "rules": {
         "semi": "error",
