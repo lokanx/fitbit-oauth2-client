@@ -11,7 +11,8 @@ webserver or by non-webserver code.  This library automatically handles token re
 This is a complete rewrite of code from https://github.com/peebles/fitbit-oauth2 (and https://github.com/Info-World/fitbit-oauth2).
 The reason for the rewrite was that the code was old and utilized libraries that contained security problems.
 
-
+## Installation
+_npm install fitbit-oauth2-client_
 ## Usage Example
 
 ### In a webapp
@@ -188,3 +189,10 @@ Short description on how to run the tests, follow the OAuth 2.0 tutorial page on
 2. Copy token-test.json.sample into token-test.json and fill in the information.
 3. Copy .env.sample into .env and fill in the information.
 4. Run tests using npm test
+
+## Roadmap
+
+Things that will come....
+
+* Support for Fitbit subscription API
+* A Thin extendable wrapper for performing common REST API calls. Will make things easier to use since you will not need to read Fitbit documentation.
