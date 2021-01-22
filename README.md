@@ -19,14 +19,14 @@ The reason for the rewrite was that the code was old and utilized libraries that
     const express = require('express');
     const app = express();
     const appConfig = require( './config/appConfig' );
-    const {Fitbit, FileTokenManager} = require( 'fitbit-oauth2-client' ); 
-    
+    const {Fitbit, FileTokenManager} = require( 'fitbit-oauth2-client' );
+
     const JSON_INDENT = 3;
     const EXPRESS_HTTP_PORT = 4000;
 
     // Instanciate a fitbit client.  See example config below.
     //
-    var fitbit = new Fitbit( appConfig.fitbit, new FileTokenManager(appConfig.fitbit.tokenFilePath) ); 
+    var fitbit = new Fitbit( appConfig.fitbit, new FileTokenManager(appConfig.fitbit.tokenFilePath) );
 
 
     // In a browser, http://localhost:4000/fitbit to authorize a user for the first time.
@@ -46,7 +46,7 @@ The reason for the rewrite was that the code was old and utilized libraries that
             res.redirect( '/fb-profile' );
         }).catch(err => {
             next( err );
-        });    
+        });
     });
 
     // Call an API.  fitbit.request() mimics nodejs request() library, automatically
@@ -74,14 +74,14 @@ the token expires, this library will automatically refresh the token and carry o
 an example:
 
     const appConfig = require( './config/appConfig' );
-    const {Fitbit, FileTokenManager} = require( 'fitbit-oauth2-client' ); 
+    const {Fitbit, FileTokenManager} = require( 'fitbit-oauth2-client' );
 
     const JSON_INDENT = 3;
     const EXPRESS_HTTP_PORT = 4000;
 
     // Instanciate a fitbit client.  See example config below.
     //
-    var fitbit = new Fitbit( appConfig.fitbit, new FileTokenManager(appConfig.fitbit.tokenFilePath) ); 
+    var fitbit = new Fitbit( appConfig.fitbit, new FileTokenManager(appConfig.fitbit.tokenFilePath) );
 
     // Make an API call
     fitbit.request({
@@ -133,6 +133,8 @@ A token is a JSON blob, and looks like this:
 
 ## API
 
+#### `new Fitbit( config )`
+FileTokenManager is used to persist tokens, config needs to define property tokenFilePath which needs to define a valid file path.
 #### `new Fitbit( config, persistManager )`
 Constructor.  See example config above. Persist manager must define methods read, write. Both methods should return a promise, see FileTokenManager.js for an example.
 
@@ -182,7 +184,7 @@ response headers.  This will look something like:
 
 Short description on how to run the tests, follow the OAuth 2.0 tutorial page on fitbit test app page using flow type *Authorization Code Flow* on https://dev.fitbit.com/.
 
-1. Create a test app and get client id, client secret, token and refresh token. 
+1. Create a test app and get client id, client secret, token and refresh token.
 2. Copy token-test.json.sample into token-test.json and fill in the information.
 3. Copy .env.sample into .env and fill in the information.
 4. Run tests using npm test

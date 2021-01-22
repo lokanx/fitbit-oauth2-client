@@ -37,6 +37,7 @@
         "no-magic-numbers": ["error", { "ignoreArrayIndexes": true, "ignore": [-1, 0, 1] }],
         "no-unsafe-negation": "error",
         "no-else-return": "error",
+        "no-trailing-spaces": ["error", {"ignoreComments": true}],
 		// Complexity
         "max-nested-callbacks": ["error", { "max": 6 }],
 		"max-depth": ["error", 4],

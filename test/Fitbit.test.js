@@ -1,5 +1,5 @@
 const appConfig = require( './config/app.json' );
-const Fitbit = require( '../Fitbit' ); 
+const Fitbit = require( '../Fitbit' );
 const FileTokenManager = require( '../FileTokenManager' );
 const TestUtils = require( './utils/TestUtils' );
 const axios = require('axios');
@@ -69,7 +69,7 @@ describe('Fitbit.constructor', () => {
 
     test('constructor - no config', () => {
         try {
-            new Fitbit();    
+            new Fitbit();
             fail('it should not reach here');
         } catch (error) {
             console.log("Error", error);
@@ -78,16 +78,16 @@ describe('Fitbit.constructor', () => {
 
     test('constructor - no token manager', () => {
         try {
-            new Fitbit(fitbitConfig);    
-            fail('it should not reach here');
+            new Fitbit(fitbitConfig);
         } catch (error) {
             console.log("Error", error);
+            fail('it should not reach here');
         }
     });
 
     test('constructor - faulty token manager', () => {
         try {
-            new Fitbit(fitbitConfig, {});    
+            new Fitbit(fitbitConfig, {});
             fail('it should not reach here');
         } catch (error) {
             console.log("Error", error);
@@ -96,7 +96,7 @@ describe('Fitbit.constructor', () => {
 
     test('constructor - faulty token manager<2>', () => {
         try {
-            new Fitbit(fitbitConfig, {read: () => {}});    
+            new Fitbit(fitbitConfig, {read: () => {}});
             fail('it should not reach here');
         } catch (error) {
             console.log("Error", error);
@@ -105,7 +105,7 @@ describe('Fitbit.constructor', () => {
 
     test('constructor', () => {
         try {
-            new Fitbit(fitbitConfig, {read: () => {}, write: () => {}});    
+            new Fitbit(fitbitConfig, {read: () => {}, write: () => {}});
         } catch (error) {
             console.log("Error", error);
             fail('it should not reach here');
@@ -116,7 +116,7 @@ describe('Fitbit.constructor', () => {
         try {
             const altFitbitConfig = {...fitbitConfig};
             delete altFitbitConfig.timeout;
-            new Fitbit(altFitbitConfig, {read: () => {}, write: () => {}});    
+            new Fitbit(altFitbitConfig, {read: () => {}, write: () => {}});
         } catch (error) {
             console.log("Error", error);
             fail('it should not reach here');
@@ -131,10 +131,10 @@ describe('Fitbit.request', () => {
     beforeEach(() => {
         const fitbitConfig = appConfig.fitbit;
         fileTokenManager = new FileTokenManager(fitbitConfig.tokenFilePath);
-        fitbit = new Fitbit(fitbitConfig, fileTokenManager);    
+        fitbit = new Fitbit(fitbitConfig, fileTokenManager);
     });
 
-    test('getProfile - expired token', (done) => {      
+    test('getProfile - expired token', (done) => {
         fileTokenManager.read().then(token => {
             if (token.expires_at) {
                 delete token.expires_at;
@@ -142,23 +142,23 @@ describe('Fitbit.request', () => {
             fitbit._token = token;
             TestUtils.getProfile(fitbit).finally(() => {
                 done();
-            });                        
-        });    
+            });
+        });
     });
 
-    test('getProfile - no token', (done) => {        
+    test('getProfile - no token', (done) => {
         TestUtils.getProfile(fitbit).finally(() => {
             done();
-        });        
+        });
     });
 
-    test('getProfile - has token', (done) => {        
+    test('getProfile - has token', (done) => {
         fileTokenManager.read().then(token => {
             fitbit._token = token;
             TestUtils.getProfile(fitbit).finally(() => {
                 done();
-            });                        
-        });    
+            });
+        });
     });
 });
 
@@ -169,10 +169,10 @@ describe('Fitbit.request', () => {
     beforeEach(() => {
         const fitbitConfig = appConfig.fitbit;
         fileTokenManager = new FileTokenManager(fitbitConfig.tokenFilePath);
-        fitbit = new Fitbit(fitbitConfig, fileTokenManager);    
+        fitbit = new Fitbit(fitbitConfig, fileTokenManager);
     });
 
-    test('getProfile - faulty config', (done) => {        
+    test('getProfile - faulty config', (done) => {
         fileTokenManager.read().then(token => {
             delete token.access_token;
             fitbit._token = token;
@@ -183,8 +183,8 @@ describe('Fitbit.request', () => {
             .catch(error => {
                 console.log("Error", error);
                 done();
-            });                        
-        });    
+            });
+        });
     });
 });
 
@@ -196,7 +196,7 @@ describe('Fitbit.request (http failures)', () => {
     beforeEach(() => {
         const fitbitConfig = appConfig.fitbit;
         fileTokenManager = new FileTokenManager(fitbitConfig.tokenFilePath);
-        fitbit = new Fitbit(fitbitConfig, fileTokenManager);    
+        fitbit = new Fitbit(fitbitConfig, fileTokenManager);
         axiosMock = new AxiosMockAdapter(axios);
     });
 
@@ -212,7 +212,7 @@ describe('Fitbit.request (http failures)', () => {
         }).catch(error => {
             console.log("Error", error);
             done();
-        });   
+        });
     });
 
     test('getProfile - response error', (done) => {
@@ -223,7 +223,7 @@ describe('Fitbit.request (http failures)', () => {
         }).catch(error => {
             console.log("Error", error);
             done();
-        });   
+        });
     });
 
 });
@@ -247,7 +247,7 @@ describe('Fitbit..setLogger', () => {
         Fitbit.setLogger(null);
         TestUtils.getProfile(fitbit).finally(() => {
             done();
-        });     
+        });
     });
 
     test('function logger', (done) => {
@@ -257,7 +257,7 @@ describe('Fitbit..setLogger', () => {
             expect(counter).not.toBe(0);
         }).finally(() => {
             done();
-        });        
+        });
     });
 
     test('function logger with data', (done) => {
@@ -274,6 +274,6 @@ describe('Fitbit..setLogger', () => {
         Fitbit.setLogger({});
         TestUtils.getProfile(fitbit).finally(() => {
             done();
-        });        
-    });   
+        });
+    });
 });

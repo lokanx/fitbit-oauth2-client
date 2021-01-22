@@ -1,5 +1,6 @@
 const axios = require('axios');
 const qs = require('qs');
+const FileTokenManager = require("./FileTokenManager");
 
 const JSON_IDENT = 3;
 const DEFAULT_TIMEOUT = 60000; // 1 minute
@@ -21,19 +22,24 @@ const _LOG = (msg, data) => {
     }
 };
 class Fitbit {
-    constructor(config, tokenManager) {
+    constructor(config, tokenManager = null) {
         if (!config) {
             throw new Error('Config expected');
         }
+
         if (!tokenManager ) {
-            throw new Error('Token persist managaer expected');
+            if (!config.tokenFilePath) {
+                throw new Error('Make sure config has property \'tokenFilePath\' defined or provide a token persist manager');
+            }
+            tokenManager = new FileTokenManager(config.tokenFilePath);
         }
+
         if (!tokenManager.read || !tokenManager.write) {
             throw new Error('Token perist manager must define methods read and write');
         }
 
         this._config = {...config};
-        this._tokenManager = tokenManager;        
+        this._tokenManager = tokenManager;
         this._token = null;
         if (!this._config.timeout) {
             this._config.timeout = DEFAULT_TIMEOUT;
@@ -47,7 +53,7 @@ class Fitbit {
     static addExpiresAt(token) {
         const now = new Date();
         now.setSeconds(now.getSeconds() + token.expires_in);
-        const expires_at = now.toISOString();        
+        const expires_at = now.toISOString();
         return {...token, expires_at};
     }
 
@@ -61,7 +67,7 @@ class Fitbit {
         return (now.getTime() >= then.getTime());
     }
 
-    authorizeURL() {        
+    authorizeURL() {
           const { AuthorizationCode } = require('simple-oauth2');
           const config = {
             client: {
@@ -73,7 +79,7 @@ class Fitbit {
               tokenPath: this._config.uris.tokenPath,
               authorizePath: this._config.uris.authorizationPath
             }
-          };    
+          };
           const client = new AuthorizationCode(config);
           return client.authorizeURL(this._config.authorization_uri);
     }
@@ -92,7 +98,7 @@ class Fitbit {
             'refresh_token': self._token.refresh_token
         });
         const config = {
-            headers: { 
+            headers: {
                 'Authorization': 'Basic ' + Buffer.from(self._config.creds.clientID + ':' + self._config.creds.clientSecret).toString('base64'),
                 'Accept': 'application/json, text/plain, */*',
                 'Content-Type': 'application/x-www-form-urlencoded'
@@ -148,7 +154,7 @@ class Fitbit {
                         reset: response.headers['fitbit-rate-limit-reset'],
                     };
                 }
-                return response;               
+                return response;
             });
         };
 

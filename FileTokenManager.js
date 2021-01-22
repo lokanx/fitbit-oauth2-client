@@ -29,31 +29,39 @@ class FileTokenManager {
 
     read() {
         return new Promise((resolve, reject) => {
-            _LOG( 'Reading token file [' + this._tokenFilePath + ']');
-            fs.readFile( this._tokenFilePath, { encoding: 'utf8', flag: 'r' }, function( err, data ) {
-                if ( err ) {
-                    return reject( err );
-                }
-                try {
-                    const token = JSON.parse( data );
-                    resolve( token );
-                } catch( error ) {
-                    reject( error );
-                }
-            });
+            try {
+                _LOG( 'Reading token file [' + this._tokenFilePath + ']');
+                fs.readFile( this._tokenFilePath, { encoding: 'utf8', flag: 'r' }, function( err, data ) {
+                    if ( err ) {
+                        return reject( err );
+                    }
+                    try {
+                        const token = JSON.parse( data );
+                        resolve( token );
+                    } catch( error ) {
+                        reject( error );
+                    }
+                });
+            } catch (error) {
+                reject(error);
+            }
         });
     }
 
     write(token) {
         return new Promise((resolve, reject) => {
-            _LOG( 'Writing token file [' + this._tokenFilePath + ']:', token );
-            fs.writeFile( this._tokenFilePath, JSON.stringify( token ), { encoding: 'utf8', flag: 'w' }, (err) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(token);
-                }
-            });
+            try {
+                _LOG( 'Writing token file [' + this._tokenFilePath + ']:', token );
+                fs.writeFile( this._tokenFilePath, JSON.stringify( token ), { encoding: 'utf8', flag: 'w' }, (err) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(token);
+                    }
+                });
+            } catch (error) {
+                reject(error);
+            }
         });
     }
 }
