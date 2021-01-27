@@ -8,7 +8,7 @@ const SUBSTRACT_MILLIS = 60000; // 1 minute
 
 let _logger = null;
 
-const _LOG = (msg, data) => {
+const _LOG_ERROR = (msg, data) => {
     if (!_logger) {
         return;
     }
@@ -22,6 +22,29 @@ const _LOG = (msg, data) => {
         data ? _logger(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger(msg);
     }
 };
+
+const _LOG_DEBUG = (msg, data) => {
+    if (!_logger) {
+        return;
+    }
+
+    if (_logger.debug) {
+        data ? _logger.debug(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger.debug(msg);
+        return;
+    }
+};
+
+const _LOG_INFO = (msg, data) => {
+    if (!_logger) {
+        return;
+    }
+
+    if (_logger.info) {
+        data ? _logger.info(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger.info(msg);
+        return;
+    }
+};
+
 class Fitbit {
     constructor(config, tokenManager = null) {
         if (!config) {
@@ -67,7 +90,6 @@ class Fitbit {
             return true;
         }
         const now = new Date();
-        console.log("now:",now);
         if (token.expires_at_timestamp) {
             return (now.getTime() >= token.expires_at_timestamp);
         }
@@ -98,6 +120,7 @@ class Fitbit {
     }
 
     fetchToken(code = null) {
+        _LOG_DEBUG("Token fetch started");
         const self = this;
         const url = self._config.uris.tokenUri + self._config.uris.tokenPath;
         const data = qs.stringify(code ? {
@@ -122,6 +145,7 @@ class Fitbit {
         return axios.post(url, data, config).then(response => {
             const token = Fitbit.addExpiresAt(response.data, requestDateTime);
             self._token = token;
+            _LOG_DEBUG("New token fetched:", token);
             return token;
         }).then(token => {
             return self._tokenManager.write(token);
@@ -129,10 +153,12 @@ class Fitbit {
     }
 
     refresh() {
+        _LOG_DEBUG("Token refresh started");
         return this.fetchToken(null);
     }
 
     request(options) {
+        _LOG_INFO("Request:", options);
         var self = this;
 
         const performRequest = () => {
@@ -158,9 +184,9 @@ class Fitbit {
             if (!options.headers.Authorization) {
                 options.headers.Authorization = 'Bearer ' + self._token.access_token;
             }
-
+            _LOG_DEBUG("Perform request: ", options);
             return axios.request(options).then((response) => {
-                _LOG(`Request ${options.url}:`, (response.toString ? response.toString() : (response.data ? response.data : "...")));
+                _LOG_ERROR(`Request ${options.url}:`, (response.toString ? response.toString() : (response.data ? response.data : "...")));
                 if (response.headers) {
                     self.limits = {
                         limit: response.headers['fitbit-rate-limit-limit'],
@@ -174,15 +200,18 @@ class Fitbit {
 
         if (!self._token) {
             return self._tokenManager.read().then(token => {
+                _LOG_DEBUG("Loaded token: ", token);
                 if (!token.expires_at_timestamp) {
                     token = Fitbit.addExpiresAt(token);
                     self._token = token;
+                    _LOG_DEBUG("Loaded token (expire at added)", token);
                     return self._tokenManager.write(token);
                 }
                 self._token = token;
                 return token;
             }).then(token => {
                 if (Fitbit.hasTokenExpired(token)) {
+                    _LOG_DEBUG("Token expired", token);
                     return self.refresh();
                 }
 
@@ -191,6 +220,7 @@ class Fitbit {
                 return performRequest();
             });
         } else if (Fitbit.hasTokenExpired(self._token)) {
+            _LOG_DEBUG("Existing token expired", self._token);
             return self.refresh().then(() => {
                 return performRequest();
             });

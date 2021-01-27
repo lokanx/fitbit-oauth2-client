@@ -2,7 +2,7 @@ const fs = require( 'fs' );
 
 const JSON_IDENT = 3;
 let _logger = null;
-const _LOG = (msg, data) => {
+const _LOG_ERROR = (msg, data) => {
     if (!_logger) {
         return;
     }
@@ -14,6 +14,17 @@ const _LOG = (msg, data) => {
 
     if (typeof(_logger) === 'function') {
         data ? _logger(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger(msg);
+    }
+};
+
+const _LOG_DEBUG = (msg, data) => {
+    if (!_logger) {
+        return;
+    }
+
+    if (_logger.debug) {
+        data ? _logger.debug(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger.debug(msg);
+        return;
     }
 };
 
@@ -30,15 +41,18 @@ class FileTokenManager {
     read() {
         return new Promise((resolve, reject) => {
             try {
-                _LOG( 'Reading token file [' + this._tokenFilePath + ']');
+                _LOG_ERROR( 'Reading token file [' + this._tokenFilePath + ']');
                 fs.readFile( this._tokenFilePath, { encoding: 'utf8', flag: 'r' }, function( err, data ) {
                     if ( err ) {
+                        _LOG_ERROR("Load failed:", err);
                         return reject( err );
                     }
                     try {
                         const token = JSON.parse( data );
+                        _LOG_DEBUG("Read token:", token);
                         resolve( token );
                     } catch( error ) {
+                        _LOG_ERROR("Load failed<2>:", error);
                         reject( error );
                     }
                 });
@@ -51,15 +65,18 @@ class FileTokenManager {
     write(token) {
         return new Promise((resolve, reject) => {
             try {
-                _LOG( 'Writing token file [' + this._tokenFilePath + ']:', token );
+                _LOG_ERROR( 'Writing token file [' + this._tokenFilePath + ']:', token );
                 fs.writeFile( this._tokenFilePath, JSON.stringify( token ), { encoding: 'utf8', flag: 'w' }, (err) => {
                     if (err) {
+                        _LOG_ERROR("Load failed:", err);
                         reject(err);
                     } else {
+                        _LOG_DEBUG("Wrote token:", token);
                         resolve(token);
                     }
                 });
             } catch (error) {
+                _LOG_ERROR("Load failed<2>:", error);
                 reject(error);
             }
         });
