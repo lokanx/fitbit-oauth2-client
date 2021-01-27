@@ -228,7 +228,18 @@ describe('Fitbit.request (http failures)', () => {
 
 });
 
-describe('Fitbit..setLogger', () => {
+describe('Fitbit.createData', () => {
+    const data = {a: 'a'};
+    expect(Fitbit.createData(data)).toBe("a=a");
+});
+
+describe('Fitbit.createData (more complex)', () => {
+    const data = {a: 'a', b: 33};
+    expect(Fitbit.createData(data)).toBe("a=a&b=33");
+});
+
+
+describe('Fitbit.setLogger', () => {
     let fileTokenManager;
     let fitbit;
 

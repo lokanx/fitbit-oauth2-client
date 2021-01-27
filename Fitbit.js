@@ -67,6 +67,10 @@ class Fitbit {
         return (now.getTime() >= then.getTime());
     }
 
+    static createData(data) {
+        return qs.stringify(data);
+    }
+
     authorizeURL() {
           const { AuthorizationCode } = require('simple-oauth2');
           const config = {
