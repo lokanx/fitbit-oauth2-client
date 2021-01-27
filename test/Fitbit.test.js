@@ -139,6 +139,9 @@ describe('Fitbit.request', () => {
             if (token.expires_at) {
                 delete token.expires_at;
             }
+            if (token.expires_at_timestamp) {
+                delete token.expires_at_timestamp;
+            }
             fitbit._token = token;
             TestUtils.getProfile(fitbit).finally(() => {
                 done();
@@ -229,13 +232,67 @@ describe('Fitbit.request (http failures)', () => {
 });
 
 describe('Fitbit.createData', () => {
-    const data = {a: 'a'};
-    expect(Fitbit.createData(data)).toBe("a=a");
+    test('Basic data', () => {
+        const data = {a: 'a'};
+        expect(Fitbit.createData(data)).toBe("a=a");
+    });
+
+    test('Complex data', () => {
+        const data = {a: 'a'};
+        expect(Fitbit.createData(data)).toBe("a=a");
+    });
+
 });
 
-describe('Fitbit.createData (more complex)', () => {
-    const data = {a: 'a', b: 33};
-    expect(Fitbit.createData(data)).toBe("a=a&b=33");
+describe('Fitbit.addExpiresAt', () => {
+    let data;
+    beforeEach(() => {
+        data = {
+            "access_token":"abc123",
+            "expires_in":28800,
+            "refresh_token":"abc123",
+            "scope":"nutrition activity heartrate settings profile social location weight sleep",
+            "token_type":"Bearer",
+            "user_id":"8SG974",
+            "expires_at":"20210127T04:00:00"
+        };
+    });
+
+    test('No expire at', () => {
+        delete data.expires_at;
+        const year = 2021;
+        const month = 0; // Zero based
+        const day = 26;
+        const hour = 21;
+        const min = 0;
+        const second = 0;
+        expect(Fitbit.addExpiresAt(data, new Date(year, month, day, hour, min, second)).expires_at).toBe("2021-01-27T04:00:00.000Z");
+    });
+
+    test('Expired', () => {
+
+    });
+
+    test('Not expired', () => {
+
+    });
+});
+
+describe('Fitbit.hasTokenExpired', () => {
+    test('No expire at', () => {
+        const data = {};
+        expect(Fitbit.hasTokenExpired(data)).toBe(true);
+    });
+
+    test('Expired', () => {
+        const data = {expires_at: "2021-01-27T04:00:00.000Z"};
+        expect(Fitbit.hasTokenExpired(data)).toBe(true);
+    });
+
+    test('Not expired', () => {
+        const data = {expires_at: "2121-01-27T04:00:00.000Z"};
+        expect(Fitbit.hasTokenExpired(data)).toBe(false);
+    });
 });
 
 

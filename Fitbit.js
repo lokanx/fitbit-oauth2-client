@@ -4,6 +4,7 @@ const FileTokenManager = require("./FileTokenManager");
 
 const JSON_IDENT = 3;
 const DEFAULT_TIMEOUT = 60000; // 1 minute
+const SUBSTRACT_MILLIS = 60000; // 1 minute
 
 let _logger = null;
 
@@ -50,20 +51,28 @@ class Fitbit {
         _logger = logger;
     }
 
-    static addExpiresAt(token) {
-        const now = new Date();
+    static addExpiresAt(token, requestDateTime = null) {
+        const now = requestDateTime||new Date();
         now.setSeconds(now.getSeconds() + token.expires_in);
+        if (!requestDateTime) {
+            now.setSeconds(now.getSeconds() - SUBSTRACT_MILLIS);
+        }
         const expires_at = now.toISOString();
-        return {...token, expires_at};
+        const expires_at_timestamp = now.getTime();
+        return {...token, expires_at, expires_at_timestamp};
     }
 
     static hasTokenExpired(token) {
         if (!token.expires_at) {
             return true;
         }
-
-        const then = new Date(token.expires_at);
         const now = new Date();
+        console.log("now:",now);
+        if (token.expires_at_timestamp) {
+            return (now.getTime() >= token.expires_at_timestamp);
+        }
+        const then = new Date(token.expires_at);
+        console.log("then:", then);
         return (now.getTime() >= then.getTime());
     }
 
@@ -109,8 +118,9 @@ class Fitbit {
             },
             timeout: self._config.timeout
         };
+        const requestDateTime = new Date();
         return axios.post(url, data, config).then(response => {
-            const token = Fitbit.addExpiresAt(response.data);
+            const token = Fitbit.addExpiresAt(response.data, requestDateTime);
             self._token = token;
             return token;
         }).then(token => {
@@ -164,7 +174,7 @@ class Fitbit {
 
         if (!self._token) {
             return self._tokenManager.read().then(token => {
-                if (!token.expires_at) {
+                if (!token.expires_at_timestamp) {
                     token = Fitbit.addExpiresAt(token);
                     self._token = token;
                     return self._tokenManager.write(token);

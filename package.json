@@ -9,7 +9,8 @@
       "!<rootDir>/test/*.js",
       "!<rootDir>/test/**/*.js",
       "!<rootDir>/node_modules/**",
-      "!<rootDir>/coverage/**"
+      "!<rootDir>/coverage/**",
+      "!<rootDir>/index.js"
     ]
   },
   "scripts": {
