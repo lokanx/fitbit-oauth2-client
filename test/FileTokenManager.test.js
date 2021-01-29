@@ -5,6 +5,8 @@ const LOGGER = TestUtils.getLogger();
 
 FileTokenManager.setLogger(LOGGER);
 
+//describe('FileTokenManager', () => {
+
 describe('FileTokenManager.read', () => {
     const filePath = '/tmp/FileTokenManager.read.json';
     let fileTokenManager;
@@ -132,7 +134,7 @@ describe('FileTokenManager.setLogger', () => {
         FileTokenManager.setLogger(() => { counter++; });
         fileTokenManager.write({"aaa": "aaa"}).then(() => {
             expect(counter).not.toBe(0);
-            done();            
+            done();
         }).catch(error => {
             console.log("Error", error);
             done.fail('it should not reach here');
@@ -146,8 +148,8 @@ describe('FileTokenManager.setLogger', () => {
         }).catch(error => {
             console.log("Error", error);
             done();
-        });        
-    });    
+        });
+    });
 
     test('illegal logger', (done) => {
         FileTokenManager.setLogger({});
@@ -156,6 +158,8 @@ describe('FileTokenManager.setLogger', () => {
         }).catch(error => {
             console.log("Error", error);
             done();
-        });        
-    });   
+        });
+    });
 });
+
+//});

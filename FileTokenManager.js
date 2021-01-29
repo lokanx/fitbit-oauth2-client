@@ -26,6 +26,10 @@ const _LOG_DEBUG = (msg, data) => {
         data ? _logger.debug(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger.debug(msg);
         return;
     }
+
+    if (typeof(_logger) === 'function') {
+        data ? _logger(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger(msg);
+    }
 };
 
 class FileTokenManager {
@@ -41,10 +45,10 @@ class FileTokenManager {
     read() {
         return new Promise((resolve, reject) => {
             try {
-                _LOG_ERROR( 'Reading token file [' + this._tokenFilePath + ']');
+                _LOG_DEBUG( 'Reading token file [' + this._tokenFilePath + ']');
                 fs.readFile( this._tokenFilePath, { encoding: 'utf8', flag: 'r' }, function( err, data ) {
                     if ( err ) {
-                        _LOG_ERROR("Load failed:", err);
+                        _LOG_ERROR("Read failed:", err);
                         return reject( err );
                     }
                     try {
@@ -52,11 +56,12 @@ class FileTokenManager {
                         _LOG_DEBUG("Read token:", token);
                         resolve( token );
                     } catch( error ) {
-                        _LOG_ERROR("Load failed<2>:", error);
+                        _LOG_ERROR("Read failed<2>:", error);
                         reject( error );
                     }
                 });
             } catch (error) {
+                _LOG_ERROR("Read failed<2>:", error);
                 reject(error);
             }
         });
@@ -65,10 +70,10 @@ class FileTokenManager {
     write(token) {
         return new Promise((resolve, reject) => {
             try {
-                _LOG_ERROR( 'Writing token file [' + this._tokenFilePath + ']:', token );
+                _LOG_DEBUG( 'Writing token file [' + this._tokenFilePath + ']:', token );
                 fs.writeFile( this._tokenFilePath, JSON.stringify( token ), { encoding: 'utf8', flag: 'w' }, (err) => {
                     if (err) {
-                        _LOG_ERROR("Load failed:", err);
+                        _LOG_ERROR("Write failed:", err);
                         reject(err);
                     } else {
                         _LOG_DEBUG("Wrote token:", token);
@@ -76,7 +81,7 @@ class FileTokenManager {
                     }
                 });
             } catch (error) {
-                _LOG_ERROR("Load failed<2>:", error);
+                _LOG_ERROR("Write failed<2>:", error);
                 reject(error);
             }
         });

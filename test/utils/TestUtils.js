@@ -1,7 +1,14 @@
 const fs = require('fs');
+const moment = require('moment-timezone');
+
+const IS_DEBUG_ENABLED = true;
+const IS_ERROR_ENABLED = true;
 
 const LOGGER = {
     debug: (...argv) => {
+        if (!IS_DEBUG_ENABLED) {
+            return;
+        }
         console.log(argv);
     },
     info: (...argv) => {
@@ -11,8 +18,15 @@ const LOGGER = {
         console.log(argv);
     },
     error: (...argv) => {
+        if (!IS_ERROR_ENABLED) {
+            return;
+        }
         console.log(argv);
     }
+};
+
+const getTodayDate = () => {
+    return moment().format('YYYY-MM-DD');
 };
 
 const deleteFile = (filePath, done = null) => {
@@ -53,7 +67,7 @@ const request = (fitbit, options) => {
         LOGGER.error(error);
         LOGGER.error(`Request ${options.url} failed: ` + error.messsage||'', {error});
         throw error;
-    });  
+    });
 };
 
 const getProfile = (fitbit) => {
@@ -69,6 +83,25 @@ const getProfile = (fitbit) => {
     });
 };
 
+const getBodyFatURL = () => {
+    const dateStr = getTodayDate();
+    return `https://api.fitbit.com/1/user/-/body/log/fat/date/${dateStr}.json`;
+};
+
+const getBodyFat = (fitbit) => {
+    const url = getBodyFatURL();
+    return request(fitbit, {
+        url,
+        method: 'GET',
+    }).then(response => {
+        LOGGER.debug("Received Body Fat Data:", response.data);
+        return response.data;
+    }).catch(error => {
+        LOGGER.error(error);
+        throw error;
+    });
+};
+
 
 const getLogger = () => LOGGER;
 
@@ -77,5 +110,7 @@ module.exports = {
     createFile,
     getLogger,
     request,
-    getProfile
+    getProfile,
+    getBodyFat,
+    getBodyFatURL
 };

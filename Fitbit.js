@@ -32,6 +32,10 @@ const _LOG_DEBUG = (msg, data) => {
         data ? _logger.debug(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger.debug(msg);
         return;
     }
+
+    if (typeof(_logger) === 'function') {
+        data ? _logger(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger(msg);
+    }
 };
 
 const _LOG_INFO = (msg, data) => {
@@ -42,6 +46,10 @@ const _LOG_INFO = (msg, data) => {
     if (_logger.info) {
         data ? _logger.info(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger.info(msg);
         return;
+    }
+
+    if (typeof(_logger) === 'function') {
+        data ? _logger(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger(msg);
     }
 };
 
@@ -65,6 +73,8 @@ class Fitbit {
         this._config = {...config};
         this._tokenManager = tokenManager;
         this._token = null;
+        this._isTokenRefreshingOrInitiating = false;
+        this._requestQueue = [];
         if (!this._config.timeout) {
             this._config.timeout = DEFAULT_TIMEOUT;
         }
@@ -83,6 +93,25 @@ class Fitbit {
         const expires_at = now.toISOString();
         const expires_at_timestamp = now.getTime();
         return {...token, expires_at, expires_at_timestamp};
+    }
+
+    static createQueuedRequest(options, fitbit) {
+        const promiseInspector = {
+            reject: null,
+            resolve: null
+        };
+        const queuedRequest = {
+            promise: new Promise((resolve, reject) => {
+                promiseInspector.reject = reject;
+                promiseInspector.resolve = resolve;
+            }),
+            handler: () => {
+                _LOG_DEBUG(`Processing queued request ${options.url}:`, options);
+                fitbit.request(options).then(response => promiseInspector.resolve(response)).catch(error => promiseInspector.reject(error));
+            }
+        };
+
+        return queuedRequest;
     }
 
     static hasTokenExpired(token) {
@@ -142,6 +171,7 @@ class Fitbit {
             timeout: self._config.timeout
         };
         const requestDateTime = new Date();
+        _LOG_DEBUG(`Token fetch: ${url}`, {data, config});
         return axios.post(url, data, config).then(response => {
             const token = Fitbit.addExpiresAt(response.data, requestDateTime);
             self._token = token;
@@ -158,8 +188,16 @@ class Fitbit {
     }
 
     request(options) {
-        _LOG_INFO("Request:", options);
         var self = this;
+
+        if (self._isTokenRefreshingOrInitiating) {
+            _LOG_DEBUG("Queueing request:", options);
+            const queuedRequest = Fitbit.createQueuedRequest(options, self);
+            self._requestQueue.push(queuedRequest.handler);
+            return queuedRequest.promise;
+        }
+
+        _LOG_INFO("Request:", options);
 
         const performRequest = () => {
             if (!self._token.access_token) {
@@ -198,7 +236,22 @@ class Fitbit {
             });
         };
 
+        const processQueuedRequests = () => {
+            setTimeout(() => {
+                const noqr = self._requestQueue.length;
+                _LOG_DEBUG(`Processing ${noqr} queued requests`);
+                while(self._requestQueue.length > 0) {
+                    const qr = self._requestQueue.shift();
+                    if (!qr) {
+                        break;
+                    }
+                    qr();
+                }
+            }, 0);
+        };
+
         if (!self._token) {
+            self._isTokenRefreshingOrInitiating = true;
             return self._tokenManager.read().then(token => {
                 _LOG_DEBUG("Loaded token: ", token);
                 if (!token.expires_at_timestamp) {
@@ -217,11 +270,20 @@ class Fitbit {
 
                 return token;
             }).then(() => {
+                if (self._isTokenRefreshingOrInitiating) {
+                    self._isTokenRefreshingOrInitiating = false;
+                    processQueuedRequests();
+                }
                 return performRequest();
             });
         } else if (Fitbit.hasTokenExpired(self._token)) {
+            this._isTokenRefreshingOrInitiating = true;
             _LOG_DEBUG("Existing token expired", self._token);
             return self.refresh().then(() => {
+                if (self._isTokenRefreshingOrInitiating) {
+                    self._isTokenRefreshingOrInitiating = false;
+                    processQueuedRequests();
+                }
                 return performRequest();
             });
         }
