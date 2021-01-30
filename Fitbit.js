@@ -1,57 +1,12 @@
 const axios = require('axios');
 const qs = require('qs');
-const FileTokenManager = require("./FileTokenManager");
+const FileTokenManager = require('./FileTokenManager');
+const LogManager = require('./LogManager');
 
-const JSON_IDENT = 3;
 const DEFAULT_TIMEOUT = 60000; // 1 minute
 const SUBSTRACT_MILLIS = 60000; // 1 minute
 
-let _logger = null;
-
-const _LOG_ERROR = (msg, data) => {
-    if (!_logger) {
-        return;
-    }
-
-    if (_logger.error) {
-        data ? _logger.error(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger.error(msg);
-        return;
-    }
-
-    if (typeof(_logger) === 'function') {
-        data ? _logger(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger(msg);
-    }
-};
-
-const _LOG_DEBUG = (msg, data) => {
-    if (!_logger) {
-        return;
-    }
-
-    if (_logger.debug) {
-        data ? _logger.debug(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger.debug(msg);
-        return;
-    }
-
-    if (typeof(_logger) === 'function') {
-        data ? _logger(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger(msg);
-    }
-};
-
-const _LOG_INFO = (msg, data) => {
-    if (!_logger) {
-        return;
-    }
-
-    if (_logger.info) {
-        data ? _logger.info(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger.info(msg);
-        return;
-    }
-
-    if (typeof(_logger) === 'function') {
-        data ? _logger(msg, JSON.stringify(data, undefined, JSON_IDENT)) : _logger(msg);
-    }
-};
+let _logger = LogManager.getLogger();
 
 class Fitbit {
     constructor(config, tokenManager = null) {
@@ -81,7 +36,7 @@ class Fitbit {
     }
 
     static setLogger(logger) {
-        _logger = logger;
+        _logger = LogManager.getLogger(logger);
     }
 
     static addExpiresAt(token, requestDateTime = null) {
@@ -106,7 +61,7 @@ class Fitbit {
                 promiseInspector.resolve = resolve;
             }),
             handler: () => {
-                _LOG_DEBUG(`Processing queued request ${options.url}:`, options);
+                _logger.trace(`request[dequeued] ${options.url}:`, options);
                 fitbit.request(options).then(response => promiseInspector.resolve(response)).catch(error => promiseInspector.reject(error));
             }
         };
@@ -123,7 +78,7 @@ class Fitbit {
             return (now.getTime() >= token.expires_at_timestamp);
         }
         const then = new Date(token.expires_at);
-        console.log("then:", then);
+        console.log('then:', then);
         return (now.getTime() >= then.getTime());
     }
 
@@ -149,7 +104,7 @@ class Fitbit {
     }
 
     fetchToken(code = null) {
-        _LOG_DEBUG("Token fetch started");
+        _logger.debug('fetchToken: ' + code);
         const self = this;
         const url = self._config.uris.tokenUri + self._config.uris.tokenPath;
         const data = qs.stringify(code ? {
@@ -171,11 +126,11 @@ class Fitbit {
             timeout: self._config.timeout
         };
         const requestDateTime = new Date();
-        _LOG_DEBUG(`Token fetch: ${url}`, {data, config});
+        _logger.trace(`fetchToken[axios.post]: ${url}`, {data, config});
         return axios.post(url, data, config).then(response => {
             const token = Fitbit.addExpiresAt(response.data, requestDateTime);
             self._token = token;
-            _LOG_DEBUG("New token fetched:", token);
+            _logger.trace('fetchToken[axios.post][response]:', token);
             return token;
         }).then(token => {
             return self._tokenManager.write(token);
@@ -183,7 +138,7 @@ class Fitbit {
     }
 
     refresh() {
-        _LOG_DEBUG("Token refresh started");
+        _logger.debug('refresh');
         return this.fetchToken(null);
     }
 
@@ -191,18 +146,18 @@ class Fitbit {
         var self = this;
 
         if (self._isTokenRefreshingOrInitiating) {
-            _LOG_DEBUG("Queueing request:", options);
+            _logger.debug('request[enqueued]:', options);
             const queuedRequest = Fitbit.createQueuedRequest(options, self);
             self._requestQueue.push(queuedRequest.handler);
             return queuedRequest.promise;
         }
 
-        _LOG_INFO("Request:", options);
+        _logger.debug('request:', options);
 
         const performRequest = () => {
             if (!self._token.access_token) {
                 return new Promise((resolve, reject) => {
-                    const error = new Error('token appears corrupt: ' + JSON.stringify(self._token));
+                    const error = new Error('token appears corrupt:' + JSON.stringify(self._token));
                     reject(error);
                 });
             }
@@ -222,9 +177,9 @@ class Fitbit {
             if (!options.headers.Authorization) {
                 options.headers.Authorization = 'Bearer ' + self._token.access_token;
             }
-            _LOG_DEBUG("Perform request: ", options);
+            _logger.trace('request.performRequest[axios.request]:', options);
             return axios.request(options).then((response) => {
-                _LOG_ERROR(`Request ${options.url}:`, (response.toString ? response.toString() : (response.data ? response.data : "...")));
+                _logger.trace(`Request ${options.url}:`, (response.toString ? response.toString() : (response.data ? response.data : '...')));
                 if (response.headers) {
                     self.limits = {
                         limit: response.headers['fitbit-rate-limit-limit'],
@@ -239,7 +194,7 @@ class Fitbit {
         const processQueuedRequests = () => {
             setTimeout(() => {
                 const noqr = self._requestQueue.length;
-                _LOG_DEBUG(`Processing ${noqr} queued requests`);
+                _logger.debug(`request.processQueuedRequests: Processing ${noqr} queued requests...`);
                 while(self._requestQueue.length > 0) {
                     const qr = self._requestQueue.shift();
                     if (!qr) {
@@ -253,18 +208,18 @@ class Fitbit {
         if (!self._token) {
             self._isTokenRefreshingOrInitiating = true;
             return self._tokenManager.read().then(token => {
-                _LOG_DEBUG("Loaded token: ", token);
+                _logger.trace('request[tokenManager.read]:', token);
                 if (!token.expires_at_timestamp) {
                     token = Fitbit.addExpiresAt(token);
                     self._token = token;
-                    _LOG_DEBUG("Loaded token (expire at added)", token);
+                    _logger.trace('request[tokenManager.read] Expire info added:', token);
                     return self._tokenManager.write(token);
                 }
                 self._token = token;
                 return token;
             }).then(token => {
                 if (Fitbit.hasTokenExpired(token)) {
-                    _LOG_DEBUG("Token expired", token);
+                    _logger.trace('request[tokenManager.read] Token expired:', token);
                     return self.refresh();
                 }
 
@@ -278,7 +233,7 @@ class Fitbit {
             });
         } else if (Fitbit.hasTokenExpired(self._token)) {
             this._isTokenRefreshingOrInitiating = true;
-            _LOG_DEBUG("Existing token expired", self._token);
+            _logger.trace('request[Token Expired]:', self._token);
             return self.refresh().then(() => {
                 if (self._isTokenRefreshingOrInitiating) {
                     self._isTokenRefreshingOrInitiating = false;
