@@ -1,6 +1,6 @@
 {
   "name": "fitbit-oauth2-client",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Fitbit client API for OAuth2",
   "main": "index.js",
   "jest": {
@@ -15,7 +15,8 @@
   },
   "scripts": {
     "lint": "eslint .",
-    "test": "./node_modules/.bin/jest --coverage"
+    "test": "./node_modules/.bin/jest --coverage",
+    "prepublishOnly": "npm run lint && npm run test"
   },
   "keywords": [
     "fitbit",
