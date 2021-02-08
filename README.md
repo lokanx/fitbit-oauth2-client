@@ -18,12 +18,26 @@ _npm install fitbit-oauth2-client_
 ### In a webapp
 
     const express = require('express');
-    const app = express();
+    const RateLimit = require('express-rate-limit');
     const appConfig = require( './config/appConfig' );
     const {Fitbit, FileTokenManager} = require( 'fitbit-oauth2-client' );
 
     const JSON_INDENT = 3;
     const EXPRESS_HTTP_PORT = 4000;
+
+    const ONE_MINUTE = 60000;
+
+    // Create instance
+    const app = express();
+
+    // Set up rate limiter: maximum of five requests per minute
+    var limiter = new RateLimit({
+    windowMs: ONE_MINUTE, // 1 minute
+    max: 5
+    });
+
+    // apply rate limiter to all requests
+    app.use(limiter);
 
     // Instanciate a fitbit client.  See example config below.
     //
