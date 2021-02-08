@@ -24,7 +24,6 @@ _npm install fitbit-oauth2-client_
 
     const JSON_INDENT = 3;
     const EXPRESS_HTTP_PORT = 4000;
-
     const ONE_MINUTE = 60000;
 
     // Create instance
