@@ -26,7 +26,7 @@ FileTokenManager.setLogger(LOGGER);
 
 // Instanciate a fitbit client.  See example config below.
 //
-var fitbit = new Fitbit( appConfig.fitbit, new FileTokenManager(appConfig.fitbit.tokenFilePath) ); 
+var fitbit = new Fitbit( appConfig.fitbit, new FileTokenManager(appConfig.fitbit.tokenFilePath) );
 
 
 // In a browser, http://localhost:4000/fitbit to authorize a user for the first time.
@@ -46,7 +46,7 @@ app.get('/fitbit_auth_callback', function (req, res, next) {
         res.redirect( '/fb-profile' );
     }).catch(err => {
         next( err );
-    });    
+    });
 });
 
 // Call an API.  fitbit.request() mimics nodejs request() library, automatically
