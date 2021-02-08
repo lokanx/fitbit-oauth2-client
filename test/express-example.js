@@ -1,5 +1,5 @@
 const express = require('express');
-const app = express();
+const RateLimit = require('express-rate-limit');
 const appConfig = require( './config/app.json' );
 const {Fitbit, FileTokenManager} = require( '../index' );
 
@@ -21,16 +21,27 @@ const LOGGER = {
 const JSON_INDENT = 3;
 const EXPRESS_HTTP_PORT = 4000;
 
+// Create instance
+const app = express();
+
+// Set up rate limiter: maximum of five requests per minute
+var RateLimit = require('express-rate-limit');
+var limiter = new RateLimit({
+  windowMs: 1*60*1000, // 1 minute
+  max: 5
+});
+
+// apply rate limiter to all requests
+app.use(limiter);
+
 Fitbit.setLogger(LOGGER);
 FileTokenManager.setLogger(LOGGER);
 
 // Instanciate a fitbit client.  See example config below.
-//
 var fitbit = new Fitbit( appConfig.fitbit, new FileTokenManager(appConfig.fitbit.tokenFilePath) ); 
 
 
 // In a browser, http://localhost:4000/fitbit to authorize a user for the first time.
-//
 app.get('/fitbit', function (req, res) {
     res.redirect( fitbit.authorizeURL() );
 });
@@ -38,7 +49,6 @@ app.get('/fitbit', function (req, res) {
 // Callback service parsing the authorization token and asking for the access token.  This
 // endpoint is refered to in config.fitbit.authorization_uri.redirect_uri.  See example
 // config below.
-//
 app.get('/fitbit_auth_callback', function (req, res, next) {
     var code = req.query.code;
     fitbit.fetchToken(code).then(token => {
@@ -53,7 +63,6 @@ app.get('/fitbit_auth_callback', function (req, res, next) {
 // adding the required oauth2 headers.  The callback is a bit different, called
 // with ( err, body, token ).  If token is non-null, this means a refresh has happened
 // and you should persist the new token.
-//
 app.get( '/fb-profile', function( req, res, next ) {
     fitbit.request({
         uri: "https://api.fitbit.com/1/user/-/profile.json",
