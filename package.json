@@ -1,6 +1,6 @@
 {
   "name": "fitbit-oauth2-client",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "Fitbit client API for OAuth2",
   "main": "index.js",
   "jest": {

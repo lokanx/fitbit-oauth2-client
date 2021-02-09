@@ -108,8 +108,8 @@ class FitbitApi {
         return handleRequest(options, this._fitbitClient, this._apiCallInterceptor);
     };
 
-    logBodyFat = (fat, dayjsDateOrTimestamp, userId = '-') => {
-        const today = FitbitApi.getDateTime(dayjsDateOrTimestamp);
+    logBodyFat = (fat, dayjsDateOrTimestamp = null, userId = '-') => {
+        const dateTime = FitbitApi.getDateTime(dayjsDateOrTimestamp);
         const url = FitbitApi.getLogBodyFatUrl(userId);
         const options = {
             url,
@@ -117,15 +117,15 @@ class FitbitApi {
             json: true,
             data: Fitbit.createData({
                 fat,
-                date: today.date,
-                time: today.time
+                date: dateTime.date,
+                time: dateTime.time
             })
         };
         return handleRequest(options, this._fitbitClient, this._apiCallInterceptor);
     };
 
-    logWeight = (weight, dayjsDateOrTimestamp, userId = '-') => {
-        const today = FitbitApi.getDateTime(dayjsDateOrTimestamp);
+    logWeight = (weight, dayjsDateOrTimestamp = null, userId = '-') => {
+        const dateTime = FitbitApi.getDateTime(dayjsDateOrTimestamp);
         const url = FitbitApi.getLogWeightUrl(userId);
         const verifiedWeight = weight > THOUSAND_FACTOR ? (weight / THOUSAND_FACTOR) : weight;
         const options = {
@@ -134,8 +134,8 @@ class FitbitApi {
             json: true,
             data: Fitbit.createData({
                 weight: verifiedWeight,
-                date: today.date,
-                time: today.time
+                date: dateTime.date,
+                time: dateTime.time
             })
         };
         return handleRequest(options, this._fitbitClient, this._apiCallInterceptor);
