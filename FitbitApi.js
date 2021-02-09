@@ -19,9 +19,22 @@ const getDayjsInstance = (dayjsDateOrTimestamp = null) => {
     return at;
 };
 
+const handleRequest = (options, fitbitClient, apiCallInterceptor) => {
+    if (apiCallInterceptor) {
+        if (apiCallInterceptor(options)) {
+            return new Promise((resolve, reject) => {
+                reject();
+            });
+        }
+    }
+
+    return fitbitClient.request(options).then(handleResponse);
+};
+
 class FitbitApi {
-    constructor(fitbitClient) {
-        this.fitbitClient = fitbitClient;
+    constructor(fitbitClient, apiCallInterceptor = null) {
+        this._fitbitClient = fitbitClient;
+        this._apiCallInterceptor = apiCallInterceptor;
     }
 
     static fromUTC = (timestamp, tz = null) => {
@@ -46,24 +59,8 @@ class FitbitApi {
         return `https://api.fitbit.com/1/user/${userId}/activities.json`;
     };
 
-    getLifetimeStats = (userId = '-') => {
-        const url = FitbitApi.getLifetimeStatsUrl(userId);
-        return this.fitbitClient.request({
-            url,
-            method: 'GET',
-        }).then(handleResponse);
-    };
-
     static getProfileUrl = (userId = '-') => {
         return `https://api.fitbit.com/1/user/${userId}/profile.json`;
-    };
-
-    getProfile = (userId = '-') => {
-        const url = FitbitApi.getProfileUrl(userId);
-        return this.fitbitClient.request({
-            url,
-            method: 'GET',
-        }).then(handleResponse);
     };
 
     static getBodyFatUrl = (dayjsDateOrTimestamp = null, userId = '-') => {
@@ -71,22 +68,50 @@ class FitbitApi {
         return `https://api.fitbit.com/1/user/${userId}/body/log/fat/date/${dateStr}.json`;
     };
 
-    getBodyFat = (dayjsDateOrTimestamp = null, userId = '-') => {
-        const url = FitbitApi.getBodyFatUrl(dayjsDateOrTimestamp, userId);
-        return this.fitbitClient.request({
-            url,
-            method: 'GET',
-        }).then(handleResponse);
-    };
-
     static getLogBodyFatUrl = (userId = '-') => {
         return `https://api.fitbit.com/1/user/${userId}/body/log/fat.json`;
+    };
+
+    static getLogWeightUrl = (userId = '-') => {
+        return `https://api.fitbit.com/1/user/${userId}/body/log/weight.json`;
+    };
+
+    static getWeightUrl = (dayjsDateOrTimestamp = null, userId = '-') => {
+        const dateStr = FitbitApi.getDate(dayjsDateOrTimestamp);
+        return `https://api.fitbit.com/1/user/${userId}/body/log/weight/date/${dateStr}.json`;
+    };
+
+    getLifetimeStats = (userId = '-') => {
+        const url = FitbitApi.getLifetimeStatsUrl(userId);
+        const options = {
+            url,
+            method: 'GET',
+        };
+        return handleRequest(options, this._fitbitClient, this._apiCallInterceptor);
+    };
+
+    getProfile = (userId = '-') => {
+        const url = FitbitApi.getProfileUrl(userId);
+        const options = {
+            url,
+            method: 'GET',
+        };
+        return handleRequest(options, this._fitbitClient, this._apiCallInterceptor);
+    };
+
+    getBodyFat = (dayjsDateOrTimestamp = null, userId = '-') => {
+        const url = FitbitApi.getBodyFatUrl(dayjsDateOrTimestamp, userId);
+        const options = {
+            url,
+            method: 'GET',
+        };
+        return handleRequest(options, this._fitbitClient, this._apiCallInterceptor);
     };
 
     logBodyFat = (fat, dayjsDateOrTimestamp, userId = '-') => {
         const today = FitbitApi.getDateTime(dayjsDateOrTimestamp);
         const url = FitbitApi.getLogBodyFatUrl(userId);
-        return this.fitbitClient.request({
+        const options = {
             url,
             method: 'POST',
             json: true,
@@ -95,18 +120,15 @@ class FitbitApi {
                 date: today.date,
                 time: today.time
             })
-        }).then(handleResponse);
-    };
-
-    static getLogWeightUrl = (userId = '-') => {
-        return `https://api.fitbit.com/1/user/${userId}/body/log/weight.json`;
+        };
+        return handleRequest(options, this._fitbitClient, this._apiCallInterceptor);
     };
 
     logWeight = (weight, dayjsDateOrTimestamp, userId = '-') => {
         const today = FitbitApi.getDateTime(dayjsDateOrTimestamp);
         const url = FitbitApi.getLogWeightUrl(userId);
         const verifiedWeight = weight > THOUSAND_FACTOR ? (weight / THOUSAND_FACTOR) : weight;
-        return this.fitbitClient.request({
+        const options = {
             url,
             method: 'POST',
             json: true,
@@ -115,20 +137,17 @@ class FitbitApi {
                 date: today.date,
                 time: today.time
             })
-        }).then(handleResponse);
-    };
-
-    static getWeightUrl = (dayjsDateOrTimestamp = null, userId = '-') => {
-        const dateStr = FitbitApi.getDate(dayjsDateOrTimestamp);
-        return `https://api.fitbit.com/1/user/${userId}/body/log/weight/date/${dateStr}.json`;
+        };
+        return handleRequest(options, this._fitbitClient, this._apiCallInterceptor);
     };
 
     getWeight = (dayjsDateOrTimestamp = null, userId = '-') => {
         const url = FitbitApi.getWeightUrl(dayjsDateOrTimestamp, userId);
-        return this.fitbitClient.request({
+        const options = {
             url,
             method: 'GET',
-        }).then(handleResponse);
+        };
+        return handleRequest(options, this._fitbitClient, this._apiCallInterceptor);
     };
 }
 
