@@ -4,6 +4,7 @@ dotenv.config();
 module.exports = {
     "fitbit": {
         "timeout": 10000,
+        "tokenExpiresFactorProcentage": 70,
         "creds": {
             "clientID": process.env.env_clientID,
             "clientSecret": process.env.env_clientSecret

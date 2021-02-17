@@ -3,8 +3,11 @@ const qs = require('qs');
 const FileTokenManager = require('./FileTokenManager');
 const LogManager = require('./LogManager');
 
+const PROCENTAGE_TO_DECIMAL_DIVIDER = 100;
 const DEFAULT_TIMEOUT = 60000; // 1 minute
 const SUBSTRACT_MILLIS = 60000; // 1 minute
+const DEFAULT_TOKEN_EXPIRES_FACTOR_PROCENTAGE = 80; // Expires factor in procent
+
 
 let _logger = LogManager.getLogger();
 
@@ -30,6 +33,10 @@ class Fitbit {
         this._token = null;
         this._isTokenRefreshingOrInitiating = false;
         this._requestQueue = [];
+        this._tokenExpiresFactor = config.tokenExpiresFactorProcentage || DEFAULT_TOKEN_EXPIRES_FACTOR_PROCENTAGE;
+        if (this._tokenExpiresFactor > 1) {
+            this._tokenExpiresFactor = this._tokenExpiresFactor / PROCENTAGE_TO_DECIMAL_DIVIDER;
+        }
         if (!this._config.timeout) {
             this._config.timeout = DEFAULT_TIMEOUT;
         }
@@ -39,9 +46,9 @@ class Fitbit {
         _logger = LogManager.getLogger(logger);
     }
 
-    static addExpiresAt(token, requestDateTime = null) {
+    static addExpiresAt(token, tokenExpiresFactor, requestDateTime = null) {
         const now = requestDateTime||new Date();
-        now.setSeconds(now.getSeconds() + token.expires_in);
+        now.setSeconds(now.getSeconds() + Math.round(token.expires_in * tokenExpiresFactor));
         if (!requestDateTime) {
             now.setSeconds(now.getSeconds() - SUBSTRACT_MILLIS);
         }
@@ -128,7 +135,7 @@ class Fitbit {
         const requestDateTime = new Date();
         _logger.trace(`fetchToken[axios.post]: ${url}`, {data, config});
         return axios.post(url, data, config).then(response => {
-            const token = Fitbit.addExpiresAt(response.data, requestDateTime);
+            const token = Fitbit.addExpiresAt(response.data, self._tokenExpiresFactor, requestDateTime);
             self._token = token;
             _logger.trace('fetchToken[axios.post][response]:', token);
             return token;
@@ -210,7 +217,7 @@ class Fitbit {
             return self._tokenManager.read().then(token => {
                 _logger.trace('request[tokenManager.read]:', token);
                 if (!token.expires_at_timestamp) {
-                    token = Fitbit.addExpiresAt(token);
+                    token = Fitbit.addExpiresAt(token, self._tokenExpiresFactor);
                     self._token = token;
                     _logger.trace('request[tokenManager.read] Expire info added:', token);
                     return self._tokenManager.write(token);

@@ -335,7 +335,7 @@ Fitbit.setLogger(LOGGER);
             const hour = 21;
             const min = 0;
             const second = 0;
-            expect(Fitbit.addExpiresAt(data, new Date(year, month, day, hour, min, second)).expires_at).toBe("2021-01-27T04:00:00.000Z");
+            expect(Fitbit.addExpiresAt(data, 1, new Date(year, month, day, hour, min, second)).expires_at).toBe("2021-01-27T04:00:00.000Z");
         });
 
         test('Expired', () => {
